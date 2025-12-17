@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import { Star, Eye, Heart, ChevronRight } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -44,12 +43,6 @@ export function PopularMoviesCarousel({
     } else {
       onAddToWatchlist(movie)
     }
-  }
-
-  const getRatingColor = (rating: number) => {
-    if (rating >= 8) return "text-green-400"
-    if (rating >= 6) return "text-yellow-400"
-    return "text-orange-400"
   }
 
   return (

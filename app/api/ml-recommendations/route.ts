@@ -106,31 +106,75 @@ export async function POST(req: NextRequest) {
       }
 
       // Remove duplicates by ID
-      candidateMovies = candidateMovies.filter((movie, index, self) => 
+      candidateMovies = candidateMovies.filter((movie, index, self) =>
         index === self.findIndex(m => m.id === movie.id)
       )
 
-      // Get additional candidates from similar movies to selected ones
-      const similarMoviePromises = body.selectedMovies.slice(0, 3).map(async (movie) => {
+      // PRIORITY 1: Get similar movies for ALL selected movies (not just first 3)
+      // Similar movies from TMDB are the most relevant candidates
+      console.log(`Fetching similar movies for ${body.selectedMovies.length} selected movies...`)
+      const similarMoviePromises = body.selectedMovies.map(async (movie) => {
         try {
-          const similarResult = await getSimilarMoviesServer(movie.id, 1)
-          return similarResult.results || []
-        } catch {
+          // Fetch 2 pages of similar movies for each selected movie
+          const [page1, page2] = await Promise.all([
+            getSimilarMoviesServer(movie.id, 1),
+            getSimilarMoviesServer(movie.id, 2)
+          ])
+          const results = [...(page1.results || []), ...(page2.results || [])]
+          console.log(`Found ${results.length} similar movies for "${movie.title}"`)
+          return results
+        } catch (error) {
+          console.warn(`Failed to get similar movies for ${movie.id}:`, error)
           return []
         }
       })
 
       const similarMovieLists = await Promise.all(similarMoviePromises)
-      const similarMovies = similarMovieLists.flat().filter((movie, index, self) => 
+      const similarMovies = similarMovieLists.flat().filter((movie, index, self) =>
         index === self.findIndex(m => m.id === movie.id)
       )
 
-      candidateMovies.push(...similarMovies)
+      console.log(`Total similar movies found: ${similarMovies.length}`)
+
+      // PRIORITY 2: Genre-based discovery using genres from selected movies
+      const selectedGenres = Array.from(new Set(
+        body.selectedMovies.flatMap(m => m.genre_ids || [])
+      ))
+
+      let genreBasedMovies: TMDBMovie[] = []
+      if (selectedGenres.length > 0) {
+        try {
+          console.log(`Discovering movies with genres: ${selectedGenres.join(', ')}`)
+          const [genrePage1, genrePage2] = await Promise.all([
+            discoverMoviesServer({ genres: selectedGenres, page: 1, sortBy: 'vote_count.desc' }),
+            discoverMoviesServer({ genres: selectedGenres, page: 2, sortBy: 'vote_count.desc' })
+          ])
+          genreBasedMovies = [...(genrePage1.results || []), ...(genrePage2.results || [])]
+          console.log(`Found ${genreBasedMovies.length} genre-matched movies`)
+        } catch (error) {
+          console.warn('Failed to get genre-based discoveries:', error)
+        }
+      }
+
+      // PRIORITIZE: Similar movies first, then genre matches, then popular/top-rated
+      // This ensures Harry Potter → other Harry Potter movies and magic movies
+      // Tag similar movies so the ML algorithm can boost their scores
+      const similarMovieIds = new Set(similarMovies.map(m => m.id))
+      const taggedSimilarMovies = similarMovies.map(m => ({ ...m, _isSimilar: true }))
+      const taggedGenreMovies = genreBasedMovies.map(m => ({ ...m, _isGenreMatch: true }))
+
+      candidateMovies = [
+        ...taggedSimilarMovies,     // Most relevant - TMDB identified as similar
+        ...taggedGenreMovies,       // Same genres
+        ...candidateMovies          // General popular/top-rated
+      ]
 
       // Final deduplication and limit to reasonable size for processing
       candidateMovies = candidateMovies
         .filter((movie, index, self) => index === self.findIndex(m => m.id === movie.id))
-        .slice(0, 200) // Limit candidates for performance
+        .slice(0, 300) // Increased limit for better selection
+
+      console.log(`Final candidate pool: ${candidateMovies.length} unique movies (${similarMovies.length} similar, ${genreBasedMovies.length} genre-matched)`)
 
     } catch (error) {
       console.error('Error fetching candidate movies:', error)

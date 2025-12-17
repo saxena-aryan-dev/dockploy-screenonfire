@@ -2,20 +2,17 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { Search, Film, Star, Filter, Play, Bell, ChevronLeft, ChevronRight, Heart, LogOut } from "lucide-react"
+import { Search, Film, Star, Filter, Play, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Suspense } from "react"
 import MovieGrid from "@/components/movie-grid"
 import { OptimizedImage } from "@/components/optimized-image"
 import { ultraFastImageLoader } from "@/lib/ultra-fast-image"
-import { AuthModal } from "@/components/lazy-components"
 import { PopularMoviesCarousel } from "@/components/popular-movies-carousel"
-import { supabase, type WatchlistItem } from "@/lib/supabase"
 import {
   getGenres,
   searchMovies,
@@ -25,27 +22,19 @@ import {
   getIndianMovies,
   getBollywoodMovies,
   getHindiMovies,
-  getPopularSeries,
-  getTopRatedSeries,
-  searchSeries,
-  discoverSeries,
-  getIndianSeries,
-  getHindiSeries,
   getImageUrl,
   type TMDBMovie,
-  type TMDBSeries,
   type TMDBGenre,
 } from "@/lib/tmdb-supabase"
 import { getYear } from "@/lib/date"
 
 export default function MovieRecommender() {
-  const [mediaType, setMediaType] = useState<"movie" | "series">("movie")
+  const [mediaType, setMediaType] = useState<"movie" | "tv">("movie")
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedGenres, setSelectedGenres] = useState<number[]>([])
   const [minRating, setMinRating] = useState("0")
   const [sortBy, setSortBy] = useState("popularity.desc")
   const [movies, setMovies] = useState<TMDBMovie[]>([])
-  const [series, setSeries] = useState<TMDBSeries[]>([])
   const [genres, setGenres] = useState<TMDBGenre[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
@@ -54,15 +43,11 @@ export default function MovieRecommender() {
   const [hasMore, setHasMore] = useState(true)
   const [selectedCountryFilter, setSelectedCountryFilter] = useState<"all" | "indian" | "bollywood" | "hindi">("all")
   const [featuredMovie, setFeaturedMovie] = useState<TMDBMovie | null>(null)
-  const [featuredSeries, setFeaturedSeries] = useState<TMDBSeries | null>(null)
   const [showFilters, setShowFilters] = useState(false)
-  const [watchlist, setWatchlist] = useState<WatchlistItem[]>([])
-  const [authUser, setAuthUser] = useState<any | null>(null)
-  const [showAuthModal, setShowAuthModal] = useState(false)
   const router = useRouter()
-  const [missingTable, setMissingTable] = useState(false)
   const [watchedMovies, setWatchedMovies] = useState<Set<string>>(new Set())
 
+  // Load genres on mount
   useEffect(() => {
     const loadGenres = async () => {
       try {
@@ -72,10 +57,39 @@ export default function MovieRecommender() {
         console.error("Error loading genres:", error)
       }
     }
-
     loadGenres()
-    loadPopularMovies()
   }, [])
+
+  // Reload content when mediaType changes (including initial load)
+  useEffect(() => {
+    console.log(`[MediaType Change] Loading ${mediaType} content...`)
+
+    // Reset to popular tab when switching between movies and series
+    setMovies([])
+    setFeaturedMovie(null)
+
+    // Load popular content for the selected media type
+    const loadContent = async () => {
+      setIsLoading(true)
+      try {
+        const data = await getPopularMovies(1, mediaType)
+        console.log(`[MediaType Change] Loaded ${data.results.length} ${mediaType} results`)
+        setMovies(data.results)
+        setTotalPages(data.total_pages)
+        setCurrentPage(1)
+        setHasMore(1 < data.total_pages)
+        setActiveTab("popular")
+        if (data.results.length > 0) setFeaturedMovie(data.results[0])
+      } catch (error) {
+        console.error(`Error loading popular ${mediaType}:`, error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadContent()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mediaType])
 
   useEffect(() => {
     if (movies.length > 0 && !featuredMovie) {
@@ -152,61 +166,11 @@ export default function MovieRecommender() {
 
   }, [featuredMovie, movies])
 
-  useEffect(() => {
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setAuthUser(session?.user ?? null)
-      if (session?.user) {
-        loadUserWatchlist(session.user.id)
-      }
-    })
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setAuthUser(session?.user ?? null)
-      if (session?.user) {
-        loadUserWatchlist(session.user.id)
-      } else {
-        setWatchlist([])
-      }
-    })
-
-    return () => subscription.unsubscribe()
-  }, [])
-
-  const loadUserWatchlist = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("watchlist")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-
-      if (error) {
-        if (error.code === "42P01") {
-          // table missing
-          setMissingTable(true)
-          console.warn(
-            "The watchlist table is missing – run scripts/create-watchlist-table.sql in your Supabase project.",
-          )
-          return
-        }
-        throw error
-      }
-
-      setWatchlist(data ?? [])
-    } catch (err) {
-      console.error("Unexpected error loading watchlist:", err)
-    }
-  }
-
   // Memoized movie functions to prevent recreation on every render
   const loadPopularMovies = useCallback(async (page = 1, append = false) => {
     setIsLoading(true)
     try {
-      const data = await getPopularMovies(page)
+      const data = await getPopularMovies(page, mediaType)
       setMovies(prev => append ? [...prev, ...data.results] : data.results)
       setTotalPages(data.total_pages)
       setCurrentPage(page)
@@ -214,16 +178,16 @@ export default function MovieRecommender() {
       setActiveTab("popular")
       if (page === 1 && !append) setFeaturedMovie(data.results[0])
     } catch (error) {
-      console.error("Error loading popular movies:", error)
+      console.error(`Error loading popular ${mediaType}:`, error)
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [mediaType])
 
   const loadTopRatedMovies = useCallback(async (page = 1, append = false) => {
     setIsLoading(true)
     try {
-      const data = await getTopRatedMovies(page)
+      const data = await getTopRatedMovies(page, mediaType)
       setMovies(prev => append ? [...prev, ...data.results] : data.results)
       setTotalPages(data.total_pages)
       setCurrentPage(page)
@@ -231,11 +195,11 @@ export default function MovieRecommender() {
       setActiveTab("top-rated")
       if (page === 1 && !append) setFeaturedMovie(data.results[0])
     } catch (error) {
-      console.error("Error loading top rated movies:", error)
+      console.error(`Error loading top rated ${mediaType}:`, error)
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [mediaType])
 
   const loadIndianMovies = async (page = 1, append = false) => {
     setIsLoading(true)
@@ -293,7 +257,7 @@ export default function MovieRecommender() {
 
     setIsLoading(true)
     try {
-      const data = await searchMovies(searchQuery, page)
+      const data = await searchMovies(searchQuery, page, mediaType)
       setMovies(prev => append ? [...prev, ...data.results] : data.results)
       setTotalPages(data.total_pages)
       setCurrentPage(page)
@@ -301,11 +265,11 @@ export default function MovieRecommender() {
       setActiveTab("search")
       if (page === 1 && !append && data.results.length > 0) setFeaturedMovie(data.results[0])
     } catch (error) {
-      console.error("Error searching movies:", error)
+      console.error(`Error searching ${mediaType}:`, error)
     } finally {
       setIsLoading(false)
     }
-  }, [searchQuery])
+  }, [searchQuery, mediaType])
 
   const handleDiscover = useCallback(async (page = 1, append = false) => {
     setIsLoading(true)
@@ -359,165 +323,24 @@ export default function MovieRecommender() {
     return []
   }
 
+  // Map of tab to loader function for cleaner code
+  const tabLoaders = useMemo(() => ({
+    "popular": loadPopularMovies,
+    "top-rated": loadTopRatedMovies,
+    "search": handleSearch,
+    "discover": handleDiscover,
+    "indian": loadIndianMovies,
+    "bollywood": loadBollywoodMovies,
+    "hindi": loadHindiMovies,
+  }), [loadPopularMovies, loadTopRatedMovies, handleSearch, handleDiscover])
+
   const handlePageChange = (page: number) => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
-    switch (activeTab) {
-      case "popular":
-        loadPopularMovies(page)
-        break
-      case "top-rated":
-        loadTopRatedMovies(page)
-        break
-      case "search":
-        handleSearch(page)
-        break
-      case "discover":
-        handleDiscover(page)
-        break
-      case "indian":
-        loadIndianMovies(page)
-        break
-      case "bollywood":
-        loadBollywoodMovies(page)
-        break
-      case "hindi":
-        loadHindiMovies(page)
-        break
-    }
+    tabLoaders[activeTab]?.(page)
   }
 
   const loadMoreMovies = () => {
-    const nextPage = currentPage + 1
-    switch (activeTab) {
-      case "popular":
-        loadPopularMovies(nextPage, true)
-        break
-      case "top-rated":
-        loadTopRatedMovies(nextPage, true)
-        break
-      case "search":
-        handleSearch(nextPage, true)
-        break
-      case "discover":
-        handleDiscover(nextPage, true)
-        break
-      case "indian":
-        loadIndianMovies(nextPage, true)
-        break
-      case "bollywood":
-        loadBollywoodMovies(nextPage, true)
-        break
-      case "hindi":
-        loadHindiMovies(nextPage, true)
-        break
-    }
-  }
-
-  /**
-   * Add a movie to the authenticated user's watchlist in Supabase with optimistic updates
-   */
-  const addToWatchlist = useCallback(async (movie: TMDBMovie) => {
-    if (!authUser) {
-      setShowAuthModal(true)
-      return
-    }
-
-    // Check if already in watchlist locally
-    if (isInWatchlist(movie.id.toString())) {
-      return
-    }
-
-    const watchlistItem = {
-      id: crypto.randomUUID(), // Temporary ID for optimistic update
-      user_id: authUser.id,
-      movie_id: movie.id.toString(),
-      title: movie.title,
-      poster_url: getImageUrl(movie.poster_path),
-      created_at: new Date().toISOString(),
-    }
-
-    // Optimistic update - add immediately to UI
-    setWatchlist((prev) => [watchlistItem, ...prev])
-
-    try {
-      const { data, error } = await supabase.from("watchlist").insert([{
-        user_id: watchlistItem.user_id,
-        movie_id: watchlistItem.movie_id,
-        title: watchlistItem.title,
-        poster_url: watchlistItem.poster_url,
-      }]).select()
-
-      if (error) {
-        // Revert optimistic update on error
-        setWatchlist((prev) => prev.filter((item) => item.movie_id !== movie.id.toString()))
-
-        // Handle specific error cases
-        if (error.code === "42P01") {
-          alert("Watchlist table doesn't exist. Please run the SQL script in your Supabase project.")
-          return
-        }
-
-        if (error.code === "23505") {
-          // Movie already exists, just remove from UI
-          return
-        }
-
-        throw error
-      }
-
-      // Replace temporary item with real data from database
-      if (data && data.length > 0) {
-        setWatchlist((prev) => prev.map((item) => 
-          item.movie_id === movie.id.toString() && item.id === watchlistItem.id 
-            ? data[0] 
-            : item
-        ))
-      }
-    } catch (error) {
-      console.error("Error adding to watchlist:", error)
-      alert("Failed to add movie to watchlist. Please try again.")
-    }
-  }, [authUser])
-
-  const removeFromWatchlist = useCallback(async (movieId: string) => {
-    if (!authUser) return
-
-    // Optimistic update - remove immediately from UI
-    const previousWatchlist = watchlist
-    setWatchlist((prev) => prev.filter((item) => item.movie_id !== movieId))
-
-    try {
-      const { error } = await supabase.from("watchlist").delete().eq("user_id", authUser.id).eq("movie_id", movieId)
-
-      if (error) {
-        // Revert on error
-        setWatchlist(previousWatchlist)
-        console.error("Supabase delete error:", error)
-        throw error
-      }
-    } catch (error) {
-      console.error("Error removing from watchlist:", error)
-      alert("Failed to remove movie from watchlist")
-    }
-  }, [authUser, watchlist])
-
-  // Memoized watchlist lookup for O(1) performance
-  const watchlistMovieIds = useMemo(() => 
-    new Set(watchlist.map(item => item.movie_id)), 
-    [watchlist]
-  )
-
-  const isInWatchlist = useCallback((movieId: string) => {
-    return watchlistMovieIds.has(movieId)
-  }, [watchlistMovieIds])
-
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-  }
-
-  const handleAuthSuccess = () => {
-    // User state will be updated by the auth state change listener
+    tabLoaders[activeTab]?.(currentPage + 1, true)
   }
 
   const handleMarkAsWatched = useCallback((movieId: string) => {
@@ -531,26 +354,6 @@ export default function MovieRecommender() {
       return newSet
     })
   }, [])
-
-  if (missingTable) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-black text-white p-8">
-        <h1 className="text-2xl font-bold mb-4">Watchlist table not found</h1>
-        <p className="text-gray-400 max-w-md text-center mb-6">
-          Your database doesn&apos;t have the <code className="text-yellow-500">watchlist</code> table yet. Please open
-          Supabase&nbsp;→ SQL editor and run the migration script located at
-          <code className="text-yellow-500"> scripts/create-watchlist-table.sql</code> in this repo, then reload this
-          page.
-        </p>
-        <Button
-          onClick={() => window.open("https://app.supabase.com/project/_/sql", "_blank")}
-          className="bg-yellow-500 text-black hover:bg-yellow-600"
-        >
-          Open Supabase SQL editor
-        </Button>
-      </div>
-    )
-  }
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -575,7 +378,10 @@ export default function MovieRecommender() {
               {/* Movies/Series Toggle */}
               <div className="flex items-center gap-2 bg-gray-900 border border-gray-800 rounded-lg p-1">
                 <button
-                  onClick={() => setMediaType("movie")}
+                  onClick={() => {
+                    console.log('[Button Click] Switching to Movies')
+                    setMediaType("movie")
+                  }}
                   className={`px-3 py-1.5 text-sm font-semibold rounded transition-all duration-200 ${
                     mediaType === "movie"
                       ? "bg-yellow-500 text-black"
@@ -586,9 +392,12 @@ export default function MovieRecommender() {
                   <span className="hidden md:inline">Movies</span>
                 </button>
                 <button
-                  onClick={() => setMediaType("series")}
+                  onClick={() => {
+                    console.log('[Button Click] Switching to TV shows')
+                    setMediaType("tv")
+                  }}
                   className={`px-3 py-1.5 text-sm font-semibold rounded transition-all duration-200 ${
-                    mediaType === "series"
+                    mediaType === "tv"
                       ? "bg-yellow-500 text-black"
                       : "text-gray-400 hover:text-white"
                   }`}
@@ -613,16 +422,6 @@ export default function MovieRecommender() {
               <Button variant="ghost" size="sm" onClick={() => router.push("/recommendations")} className="text-gray-300 hover:text-white">
                 🤖 AI
               </Button>
-              {authUser && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => router.push("/watchlist")}
-                  className="text-gray-300 hover:text-white"
-                >
-                  Watchlist ({watchlist.length})
-                </Button>
-              )}
             </nav>
 
             {/* Right Side Actions */}
@@ -631,39 +430,13 @@ export default function MovieRecommender() {
               <div className="relative hidden md:block">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
-                  placeholder="Search movies..."
+                  placeholder={`Search ${mediaType === 'tv' ? 'TV shows' : 'movies'}...`}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                   className="pl-10 w-48 lg:w-80 bg-gray-900 border-gray-700 text-white placeholder-gray-400 focus:border-yellow-500"
                 />
               </div>
-
-              {authUser ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-300 hidden md:block truncate max-w-[120px]">
-                    {authUser.user_metadata?.full_name || authUser.email}
-                  </span>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={handleSignOut}
-                    className="text-gray-400 hover:text-white"
-                  >
-                    <LogOut className="h-5 w-5" />
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowAuthModal(true)}
-                  className="border-gray-700 text-white bg-gray-800"
-                >
-                  <span className="hidden sm:inline">Sign In</span>
-                  <span className="sm:hidden">Login</span>
-                </Button>
-              )}
             </div>
           </div>
 
@@ -671,7 +444,7 @@ export default function MovieRecommender() {
           <div className="md:hidden mt-3 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
-              placeholder="Search movies..."
+              placeholder={`Search ${mediaType === 'tv' ? 'TV shows' : 'movies'}...`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -693,16 +466,6 @@ export default function MovieRecommender() {
             <Button variant="ghost" size="sm" onClick={() => router.push("/recommendations")} className="text-gray-300 hover:text-white whitespace-nowrap">
               🤖 AI
             </Button>
-            {authUser && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.push("/watchlist")}
-                className="text-gray-300 hover:text-white whitespace-nowrap"
-              >
-                Watchlist ({watchlist.length})
-              </Button>
-            )}
           </div>
         </div>
       </header>
@@ -818,25 +581,6 @@ export default function MovieRecommender() {
                         </Button>
                         <Button
                           size="lg"
-                          variant="outline"
-                          className={`border-2 font-semibold transition-all duration-300 hover:scale-105 shadow-lg ${
-                            isInWatchlist(featuredMovie.id.toString())
-                              ? "border-yellow-500 text-yellow-500 bg-yellow-500/10 hover:bg-yellow-500/20"
-                              : "border-white/40 text-white hover:border-white hover:bg-white/10"
-                          }`}
-                          onClick={() => addToWatchlist(featuredMovie)}
-                          disabled={isInWatchlist(featuredMovie.id.toString())}
-                        >
-                          <Heart
-                            className={`h-5 w-5 mr-2 transition-all duration-300 ${
-                              isInWatchlist(featuredMovie.id.toString()) ? "fill-current scale-110" : ""
-                            }`}
-                          />
-                          <span className="hidden sm:inline">{isInWatchlist(featuredMovie.id.toString()) ? "In Watchlist" : "Add to Watchlist"}</span>
-                          <span className="sm:hidden">{isInWatchlist(featuredMovie.id.toString()) ? "Added" : "Add"}</span>
-                        </Button>
-                        <Button
-                          size="lg"
                           variant="ghost"
                           className="border border-white/20 text-white hover:bg-white/10 hover:border-white/40 font-semibold transition-all duration-300"
                           onClick={() => router.push(`/movies/${featuredMovie.id}`)}
@@ -894,17 +638,19 @@ export default function MovieRecommender() {
           <div className="space-y-2">
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-black tracking-tight">
               <span className="bg-gradient-to-r from-white via-gray-100 to-gray-400 bg-clip-text text-transparent">
-                {activeTab === "popular" && "Popular Movies"}
-                {activeTab === "top-rated" && "Top Rated Movies"}
+                {activeTab === "popular" && `Popular ${mediaType === 'tv' ? 'TV Shows' : 'Movies'}`}
+                {activeTab === "top-rated" && `Top Rated ${mediaType === 'tv' ? 'TV Shows' : 'Movies'}`}
                 {activeTab === "search" && `Search Results for "${searchQuery}"`}
-                {activeTab === "discover" && "Discover Movies"}
+                {activeTab === "discover" && `Discover ${mediaType === 'tv' ? 'TV Shows' : 'Movies'}`}
                 {activeTab === "indian" && "🇮🇳 Indianise"}
                 {activeTab === "bollywood" && "🎬 Bollywood Movies"}
                 {activeTab === "hindi" && "🗣️ Hindi Movies"}
               </span>
             </h2>
             <p className="text-gray-400 text-sm md:text-base">
-              {movies.length > 0 ? `Showing ${movies.length} ${movies.length === 1 ? 'movie' : 'movies'}` : 'Loading movies...'}
+              {movies.length > 0
+                ? `Showing ${movies.length} ${mediaType === 'tv' ? (movies.length === 1 ? 'TV show' : 'TV shows') : (movies.length === 1 ? 'movie' : 'movies')}`
+                : `Loading ${mediaType === 'tv' ? 'TV shows' : 'movies'}...`}
             </p>
           </div>
 
@@ -1023,43 +769,10 @@ export default function MovieRecommender() {
           </Card>
         )}
 
-        {/* Popular Movies Carousel */}
-        {activeTab === "popular" && movies.length > 0 && (
-          <div className="mb-10">
-            <PopularMoviesCarousel
-              movies={movies}
-              title="Most popular movies this week"
-              isInWatchlist={isInWatchlist}
-              onAddToWatchlist={addToWatchlist}
-              onRemoveFromWatchlist={removeFromWatchlist}
-              onMarkAsWatched={handleMarkAsWatched}
-              watchedMovies={watchedMovies}
-            />
-          </div>
-        )}
-
-        {/* Top Rated Movies Carousel */}
-        {activeTab === "top-rated" && movies.length > 0 && (
-          <div className="mb-10">
-            <PopularMoviesCarousel
-              movies={movies}
-              title="Top rated movies of all time"
-              isInWatchlist={isInWatchlist}
-              onAddToWatchlist={addToWatchlist}
-              onRemoveFromWatchlist={removeFromWatchlist}
-              onMarkAsWatched={handleMarkAsWatched}
-              watchedMovies={watchedMovies}
-            />
-          </div>
-        )}
-
         {/* Movies Grid */}
         <MovieGrid
           movies={movies}
           isLoading={isLoading}
-          isInWatchlist={isInWatchlist}
-          onAddToWatchlist={addToWatchlist}
-          onRemoveFromWatchlist={removeFromWatchlist}
           onLoadMovies={loadPopularMovies}
         />
 
@@ -1075,12 +788,12 @@ export default function MovieRecommender() {
               {isLoading ? (
                 <span className="flex items-center gap-3">
                   <span className="animate-spin text-2xl">⏳</span>
-                  <span>Loading More Movies...</span>
+                  <span>Loading More {mediaType === 'tv' ? 'TV Shows' : 'Movies'}...</span>
                 </span>
               ) : (
                 <span className="flex items-center gap-3">
                   <ChevronRight className="h-6 w-6 group-hover:translate-x-1 transition-transform" />
-                  <span>Load More Movies</span>
+                  <span>Load More {mediaType === 'tv' ? 'TV Shows' : 'Movies'}</span>
                   <ChevronRight className="h-6 w-6 group-hover:translate-x-1 transition-transform" />
                 </span>
               )}
@@ -1088,7 +801,7 @@ export default function MovieRecommender() {
             <div className="text-center">
               <p className="text-gray-400 text-sm">
                 Showing <span className="text-yellow-500 font-bold">{movies.length}</span> of{" "}
-                <span className="text-white font-bold">{totalPages * 20}</span> movies
+                <span className="text-white font-bold">{totalPages * 20}</span> {mediaType === 'tv' ? 'TV shows' : 'movies'}
               </p>
               <p className="text-gray-500 text-xs mt-1">Page {currentPage} of {totalPages}</p>
             </div>
@@ -1099,7 +812,7 @@ export default function MovieRecommender() {
         {movies.length > 0 && !hasMore && (
           <div className="text-center mt-12 p-6 bg-gray-900/50 rounded-xl border border-gray-800">
             <p className="text-gray-300 text-lg">
-              You've reached the end! Showing all <span className="text-yellow-500 font-bold">{movies.length}</span> movies
+              You've reached the end! Showing all <span className="text-yellow-500 font-bold">{movies.length}</span> {mediaType === 'tv' ? 'TV shows' : 'movies'}
             </p>
           </div>
         )}
@@ -1135,10 +848,6 @@ export default function MovieRecommender() {
           </div>
         )}
       </div>
-
-      <Suspense fallback={<div />}>
-        <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} onAuthSuccess={handleAuthSuccess} />
-      </Suspense>
     </div>
   )
 }

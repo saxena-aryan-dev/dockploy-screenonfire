@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export const runtime = 'edge';
+// Removed edge runtime to fix Windows development build issues
+// export const runtime = 'edge';
 
 const TMDB_BASE_URL = 'https://api.themoviedb.org';
 const TMDB_READ_TOKEN = process.env.TMDB_ACCESS_TOKEN ||
@@ -29,13 +30,13 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: nu
   }
 }
 
-async function retryFetch(url: string, options: RequestInit, maxRetries = 2): Promise<Response> {
+async function retryFetch(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
   let lastError: Error = new Error('Unknown error');
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      // Shorter timeout for faster failure detection (10 seconds instead of default)
-      const response = await fetchWithTimeout(url, options, 10000);
+      // Shorter timeout for faster failure detection (8 seconds instead of default)
+      const response = await fetchWithTimeout(url, options, 8000);
 
       if (response.ok) {
         return response;
@@ -48,18 +49,29 @@ async function retryFetch(url: string, options: RequestInit, maxRetries = 2): Pr
 
       // For 429 or 5xx, wait with exponential backoff (shorter delays)
       if (attempt < maxRetries) {
-        const delay = Math.min(500 * Math.pow(2, attempt), 2000);
+        const delay = Math.min(300 * Math.pow(2, attempt), 1500);
+        console.log(`[TMDB Retry] Attempt ${attempt + 1} failed with ${response.status}, retrying in ${delay}ms`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
 
       lastError = new Error(`HTTP ${response.status}: ${response.statusText}`);
     } catch (error) {
       lastError = error instanceof Error ? error : new Error('Unknown error');
+      const errorMessage = lastError.message.toLowerCase();
 
-      // Only retry once on timeout/network errors
-      if (attempt < maxRetries && attempt === 0) {
-        const delay = 1000;
+      // Retry on network errors (ECONNRESET, timeout, etc.)
+      const isNetworkError = errorMessage.includes('econnreset') ||
+                            errorMessage.includes('timeout') ||
+                            errorMessage.includes('fetch failed') ||
+                            errorMessage.includes('network');
+
+      if (attempt < maxRetries && isNetworkError) {
+        // More aggressive retry for network errors
+        const delay = 500 * (attempt + 1); // 500ms, 1000ms, 1500ms
+        console.log(`[TMDB Retry] Network error (${errorMessage}), retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, delay));
+      } else if (attempt >= maxRetries) {
+        console.error(`[TMDB Retry] Max retries (${maxRetries}) exceeded, giving up`);
       }
     }
   }
@@ -72,7 +84,7 @@ function getMockData(path: string): any {
   console.log('[TMDB Proxy] Using fallback mock data for:', path);
 
   // Genre list fallback
-  if (path.includes('/genre/movie/list')) {
+  if (path.includes('/genre/movie/list') || path.includes('/genre/tv/list')) {
     return {
       genres: [
         { id: 28, name: "Action" }, { id: 12, name: "Adventure" },
@@ -86,6 +98,61 @@ function getMockData(path: string): any {
         { id: 53, name: "Thriller" }, { id: 10752, name: "War" },
         { id: 37, name: "Western" }
       ]
+    };
+  }
+
+  // TV shows fallback
+  if (path.includes('/tv/popular') || path.includes('/tv/top_rated') || path.includes('/search/tv')) {
+    return {
+      page: 1,
+      results: [
+        {
+          id: 94997,
+          name: "House of the Dragon",
+          overview: "The Targaryen dynasty is at the absolute apex of its power, with more than 15 dragons under their yoke. Most empires crumble from such heights.",
+          poster_path: "/7QMsOTMUswlwxJP0rTTZfmz2tX2.jpg",
+          backdrop_path: "/9l1eZiJHmhr5jIlthMdJN5WYoff.jpg",
+          first_air_date: "2022-08-21",
+          vote_average: 8.4,
+          popularity: 3847.912,
+          genre_ids: [18, 10765, 10759]
+        },
+        {
+          id: 94605,
+          name: "Arcane",
+          overview: "Amid the stark discord of twin cities Piltover and Zaun, two sisters fight on rival sides of a war between magic technologies and clashing convictions.",
+          poster_path: "/fqldf2t8ztc9aiwn3k6mlX3tvRT.jpg",
+          backdrop_path: "/rkB4LyZHo1NHXFEDHl9vSD9r1lI.jpg",
+          first_air_date: "2021-11-06",
+          vote_average: 8.7,
+          popularity: 2543.321,
+          genre_ids: [16, 10765, 10759]
+        },
+        {
+          id: 1396,
+          name: "Breaking Bad",
+          overview: "When Walter White, a New Mexico chemistry teacher, is diagnosed with Stage III cancer and given a prognosis of only two years left to live, he becomes filled with a sense of fearlessness.",
+          poster_path: "/ztkUQFLlC19CCMYHW9o1zWhJRNq.jpg",
+          backdrop_path: "/tsRy63Mu5cu8etL1X7ZLyf7UP1M.jpg",
+          first_air_date: "2008-01-20",
+          vote_average: 8.9,
+          popularity: 1987.654,
+          genre_ids: [18, 80]
+        },
+        {
+          id: 1399,
+          name: "Game of Thrones",
+          overview: "Seven noble families fight for control of the mythical land of Westeros. Friction between the houses leads to full-scale war.",
+          poster_path: "/1XS1oqL89opfnbLl8WnZY1O1uJx.jpg",
+          backdrop_path: "/2OMB0ynKlyIenMJWI2Dy9IWT4c.jpg",
+          first_air_date: "2011-04-17",
+          vote_average: 8.4,
+          popularity: 1654.234,
+          genre_ids: [18, 10765, 10759]
+        }
+      ],
+      total_pages: 500,
+      total_results: 10000
     };
   }
 

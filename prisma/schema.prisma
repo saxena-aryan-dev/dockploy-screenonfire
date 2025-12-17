@@ -1,0 +1,243 @@
+// Prisma schema for ScreenOnFire - Movie Discovery Platform
+// Database: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USER MANAGEMENT
+// ============================================
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  name          String?
+  avatar        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  watchlist     WatchlistItem[]
+  likes         MovieLike[]
+  dislikes      MovieDislike[]
+  seen          SeenMovie[]
+  reviews       MovieReview[]
+  ratings       MovieRating[]
+  discussions   Discussion[]
+  reactions     DiscussionReaction[]
+
+  @@index([email])
+}
+
+// ============================================
+// MOVIE INTERACTIONS
+// ============================================
+
+model WatchlistItem {
+  id          String   @id @default(uuid())
+  userId      String
+  movieId     Int
+  movieTitle  String
+  posterUrl   String?
+  addedAt     DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, movieId])
+  @@index([userId])
+  @@index([movieId])
+}
+
+model MovieLike {
+  id          String   @id @default(uuid())
+  userId      String
+  movieId     Int
+  movieTitle  String
+  likedAt     DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, movieId])
+  @@index([userId])
+  @@index([movieId])
+}
+
+model MovieDislike {
+  id          String   @id @default(uuid())
+  userId      String
+  movieId     Int
+  movieTitle  String
+  dislikedAt  DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, movieId])
+  @@index([userId])
+  @@index([movieId])
+}
+
+model SeenMovie {
+  id          String   @id @default(uuid())
+  userId      String
+  movieId     Int
+  movieTitle  String
+  watchedAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, movieId])
+  @@index([userId])
+  @@index([movieId])
+}
+
+model MovieRating {
+  id          String   @id @default(uuid())
+  userId      String
+  movieId     Int
+  movieTitle  String
+  rating      Float    // 0.0 to 10.0
+  ratedAt     DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, movieId])
+  @@index([userId])
+  @@index([movieId])
+  @@index([rating])
+}
+
+model MovieReview {
+  id          String   @id @default(uuid())
+  userId      String
+  movieId     Int
+  movieTitle  String
+  content     String   @db.Text
+  rating      Float?   // Optional rating with review
+  helpful     Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([movieId])
+  @@index([createdAt])
+}
+
+// ============================================
+// DISCUSSIONS & COMMUNITY
+// ============================================
+
+model Discussion {
+  id          String   @id @default(uuid())
+  movieId     Int
+  userId      String
+  content     String   @db.Text
+  parentId    String?  // For threaded replies
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent      Discussion?          @relation("DiscussionReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     Discussion[]         @relation("DiscussionReplies")
+  reactions   DiscussionReaction[]
+
+  @@index([movieId])
+  @@index([userId])
+  @@index([parentId])
+  @@index([createdAt])
+}
+
+model DiscussionReaction {
+  id            String   @id @default(uuid())
+  discussionId  String
+  userId        String
+  type          String   // 'like', 'love', 'haha', 'wow', etc.
+  createdAt     DateTime @default(now())
+
+  discussion    Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([discussionId, userId, type])
+  @@index([discussionId])
+  @@index([userId])
+}
+
+// ============================================
+// MOVIE DATA CACHE (Optional - for faster queries)
+// ============================================
+
+model MovieCache {
+  id              Int      @id // TMDB movie ID
+  title           String
+  originalTitle   String?
+  overview        String?  @db.Text
+  releaseDate     DateTime?
+  runtime         Int?
+  voteAverage     Float?
+  voteCount       Int?
+  popularity      Float?
+  posterPath      String?
+  backdropPath    String?
+  adult           Boolean  @default(false)
+  originalLanguage String?
+  genres          String[] // JSON array of genre IDs
+
+  // Cached data
+  lastUpdated     DateTime @default(now())
+
+  @@index([title])
+  @@index([releaseDate])
+  @@index([voteAverage])
+  @@index([popularity])
+}
+
+// ============================================
+// USER PREFERENCES & SETTINGS
+// ============================================
+
+model UserPreference {
+  id                  String   @id @default(uuid())
+  userId              String   @unique
+  favoriteGenres      Int[]    // Array of TMDB genre IDs
+  preferredLanguages  String[] // e.g., ['en', 'hi', 'es']
+  emailNotifications  Boolean  @default(true)
+  theme               String   @default("dark") // 'dark' or 'light'
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// ============================================
+// ANALYTICS & TRACKING (Optional)
+// ============================================
+
+model SearchHistory {
+  id          String   @id @default(uuid())
+  userId      String?  // Nullable for anonymous users
+  query       String
+  results     Int      // Number of results returned
+  searchedAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([searchedAt])
+}
+
+model MovieView {
+  id        String   @id @default(uuid())
+  userId    String?  // Nullable for anonymous users
+  movieId   Int
+  viewedAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([movieId])
+  @@index([viewedAt])
+}

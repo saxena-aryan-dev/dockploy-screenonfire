@@ -3,23 +3,21 @@
 import type React from "react"
 
 import { useState, useEffect, useRef } from "react"
-// import { useChat } from "ai/react" // Not available in AI v5.x
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
-import { MessageCircle, Send, Bot, User, Sparkles, Film, RotateCcw, AlertCircle, X, Minimize2, Maximize2, Brain, Zap, Stars } from "lucide-react"
+import { MessageCircle, Send, Bot, User, Sparkles, Film, RotateCcw, AlertCircle, X, Wand2, Star, TrendingUp, Heart, Zap, Popcorn } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { supabase } from "@/lib/supabase"
 
 const SUGGESTED_PROMPTS = [
-  "Recommend me a thriller like Gone Girl",
-  "What's a good comedy for tonight?",
-  "Best sci-fi movies of 2024",
-  "Movies similar to Inception",
-  "Hidden gem movies I should watch",
-  "Best movies for a date night",
+  { text: "Recommend me a thriller like Gone Girl", icon: TrendingUp },
+  { text: "What's a good comedy for tonight?", icon: Popcorn },
+  { text: "Best sci-fi movies of 2024", icon: Star },
+  { text: "Movies similar to Inception", icon: Film },
+  { text: "Hidden gem movies I should watch", icon: Sparkles },
+  { text: "Best movies for a date night", icon: Heart },
 ]
 
 // Simple function to convert basic markdown to HTML
@@ -35,8 +33,8 @@ function parseMarkdown(text: string): string {
 
 export function FloatingChatButton() {
   const [isOpen, setIsOpen] = useState(false)
-  const [authUser, setAuthUser] = useState<any | null>(null)
   const [showSuggestions, setShowSuggestions] = useState(true)
+  const [isMounted, setIsMounted] = useState(false)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
 
   // Simple chat state replacement for useChat
@@ -143,19 +141,9 @@ export function FloatingChatButton() {
     setShowSuggestions(true)
   }
 
-  // Check authentication
+  // Set mounted state for client-side only rendering
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setAuthUser(session?.user ?? null)
-    })
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setAuthUser(session?.user ?? null)
-    })
-
-    return () => subscription.unsubscribe()
+    setIsMounted(true)
   }, [])
 
   // Auto-scroll to bottom when new messages arrive
@@ -168,8 +156,8 @@ export function FloatingChatButton() {
     }
   }, [messages])
 
-  const handleSuggestedPrompt = (prompt: string) => {
-    handleInputChange({ target: { value: prompt } } as any)
+  const handleSuggestedPrompt = (promptText: string) => {
+    handleInputChange({ target: { value: promptText } } as any)
     setShowSuggestions(false)
   }
 
@@ -200,236 +188,284 @@ export function FloatingChatButton() {
       <SheetTrigger asChild>
         <Button
           size="icon"
-          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 h-14 w-14 sm:h-16 sm:w-16 rounded-2xl shadow-xl bg-gradient-to-br from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700 text-white z-50 transition-all duration-200 active:scale-95 border-0"
+          className="group fixed bottom-6 right-6 sm:bottom-8 sm:right-8 h-16 w-16 sm:h-[72px] sm:w-[72px] rounded-[20px] shadow-2xl bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-600 hover:from-yellow-500 hover:via-yellow-600 hover:to-amber-700 text-white z-50 transition-all duration-300 active:scale-95 border-0 hover:shadow-yellow-500/50 hover:shadow-[0_20px_60px_-15px] relative overflow-hidden"
         >
+          {/* Animated gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/20 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
           <div className="relative flex items-center justify-center">
-            <MessageCircle className="w-6 h-6 sm:w-7 sm:h-7 text-white" strokeWidth={2.5} />
+            <Bot className="w-7 h-7 sm:w-8 sm:h-8 text-white drop-shadow-lg transition-transform duration-300 group-hover:scale-110" strokeWidth={2} />
           </div>
+
+          {/* Active indicator */}
+          <div className="absolute top-2 right-2 w-3 h-3 bg-green-400 rounded-full border-2 border-white shadow-lg" />
         </Button>
       </SheetTrigger>
 
-      <SheetContent side="bottom" className="h-[90vh] sm:h-[85vh] flex flex-col gap-0 bg-slate-950 text-white border-slate-800 p-0 animate-in slide-in-from-bottom-2 fade-in-0 duration-200">
-        {/* Header */}
-        <SheetHeader className="relative p-3 sm:p-4 border-b border-slate-800/80 bg-slate-900/50 backdrop-blur-lg">
+      <SheetContent side="bottom" className="h-[92vh] sm:h-[88vh] flex flex-col gap-0 bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 text-white border-t border-slate-700/50 p-0 animate-in slide-in-from-bottom-4 fade-in-0 duration-300">
+        {/* Professional Header with glassmorphism */}
+        <SheetHeader className="relative p-4 sm:p-5 border-b border-slate-700/50 bg-gradient-to-r from-slate-900/95 via-slate-900/90 to-slate-800/95 backdrop-blur-xl">
+          {/* Subtle gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/5 via-transparent to-yellow-500/5 pointer-events-none" />
+
           <div className="relative flex items-center justify-between">
-            <SheetTitle className="text-base sm:text-lg font-semibold text-white flex items-center gap-2.5 sm:gap-3">
-              {/* Clean Avatar */}
-              <div className="relative">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-yellow-500 to-amber-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <MessageCircle className="w-4.5 h-4.5 sm:w-5 sm:h-5 text-white" strokeWidth={2.5} />
+            <SheetTitle className="text-lg sm:text-xl font-bold text-white flex items-center gap-3 sm:gap-4">
+              {/* Enhanced Avatar with glow */}
+              <div className="relative group">
+                <div className="absolute inset-0 bg-gradient-to-br from-yellow-400 to-amber-600 rounded-2xl blur-md opacity-50 group-hover:opacity-75 transition-opacity" />
+                <div className="relative w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-600 rounded-2xl flex items-center justify-center shadow-xl transform group-hover:scale-105 transition-transform duration-300">
+                  <Bot className="w-6 h-6 sm:w-7 sm:h-7 text-white drop-shadow-lg" strokeWidth={2} />
                 </div>
-                {/* Status indicator */}
-                <div className="absolute -bottom-0.5 -right-0.5">
-                  <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-500 rounded-full border-2 border-slate-900" />
+                {/* Animated status indicator */}
+                <div className="absolute -bottom-1 -right-1">
+                  <div className="relative">
+                    <div className="w-4 h-4 bg-green-400 rounded-full border-2 border-slate-900 shadow-lg" />
+                    {isMounted && (
+                      <div className="absolute inset-0 w-4 h-4 bg-green-400 rounded-full animate-ping opacity-75" />
+                    )}
+                  </div>
                 </div>
               </div>
 
               <div className="flex flex-col">
-                <div className="text-sm sm:text-base font-semibold text-white">
-                  CineSensei
+                <div className="flex items-center gap-2">
+                  <span className="text-base sm:text-lg font-bold bg-gradient-to-r from-white to-slate-200 bg-clip-text text-transparent">
+                    CineSensei
+                  </span>
+                  <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-[10px] px-1.5 py-0 font-medium">
+                    AI
+                  </Badge>
                 </div>
-                <div className="text-xs font-normal text-slate-400">
-                  AI Movie Expert
+                <div className="text-xs sm:text-sm font-medium text-slate-400 flex items-center gap-1.5">
+                  <Sparkles className="w-3 h-3 text-yellow-500" />
+                  Your Personal Movie Expert
                 </div>
               </div>
             </SheetTitle>
 
-            <div className="flex items-center gap-1 sm:gap-2">
+            <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={resetChat}
-                className="h-9 w-9 sm:h-8 sm:w-8 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors active:scale-95"
+                className="h-10 w-10 text-slate-400 hover:text-white hover:bg-slate-800/80 rounded-xl transition-all duration-200 active:scale-95 hover:shadow-lg"
                 title="New Conversation"
               >
-                <RotateCcw className="w-4 h-4" />
+                <RotateCcw className="w-4.5 h-4.5" strokeWidth={2} />
               </Button>
             </div>
           </div>
 
-          {!authUser && (
-            <div className="relative mt-2.5 sm:mt-3 bg-slate-800/50 border border-slate-700/50 rounded-lg p-2.5 sm:p-3 backdrop-blur-sm">
-              <div className="relative flex items-start gap-2">
-                <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-md bg-blue-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Film className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-blue-400" />
-                </div>
-                <div>
-                  <p className="text-slate-300 text-xs leading-relaxed">
-                    <span className="font-medium text-white">Guest Mode</span> - <span className="hidden sm:inline">Chat without signing in! Sign in later for personalized recommendations.</span><span className="sm:hidden">Sign in for personalized recs.</span>
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
         </SheetHeader>
 
-        {/* Messages */}
-        <ScrollArea className="flex-1 px-3 sm:px-6 bg-slate-950" ref={scrollAreaRef}>
-          <div className="space-y-3 sm:space-y-4 py-4 sm:py-6">
-            {/* Welcome Message */}
+        {/* Messages Area with gradient background */}
+        <ScrollArea className="flex-1 px-4 sm:px-6 bg-gradient-to-b from-slate-950 to-slate-900" ref={scrollAreaRef}>
+          <div className="space-y-4 sm:space-y-5 py-6 sm:py-8">
+            {/* Enhanced Welcome Message */}
             {messages.length === 0 && (
-              <div className="text-center py-6 sm:py-8 px-3 sm:px-4 max-w-2xl mx-auto">
-                {/* Clean Hero Avatar */}
-                <div className="relative mx-auto mb-4 sm:mb-6 w-14 h-14 sm:w-16 sm:h-16">
-                  <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-yellow-500 to-amber-600 rounded-2xl flex items-center justify-center shadow-xl">
-                    <MessageCircle className="w-7 h-7 sm:w-8 sm:h-8 text-white" strokeWidth={2.5} />
+              <div className="text-center py-8 sm:py-12 px-4 sm:px-6 max-w-3xl mx-auto">
+                {/* Hero Avatar with animated gradient */}
+                <div className="relative mx-auto mb-6 sm:mb-8 w-20 h-20 sm:w-24 sm:h-24">
+                  {isMounted && (
+                    <div className="absolute inset-0 bg-gradient-to-br from-yellow-400 to-amber-600 rounded-3xl blur-2xl opacity-40 animate-pulse" />
+                  )}
+                  <div className="relative w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-600 rounded-3xl flex items-center justify-center shadow-2xl transform hover:scale-105 transition-transform duration-300">
+                    <Bot className="w-10 h-10 sm:w-12 sm:h-12 text-white drop-shadow-2xl" strokeWidth={2} />
                   </div>
                 </div>
 
-                {/* Welcome Text */}
-                <div className="space-y-2 sm:space-y-3 mb-6 sm:mb-8">
-                  <h3 className="text-xl sm:text-2xl font-bold text-white">
+                {/* Welcome Text with gradient */}
+                <div className="space-y-3 sm:space-y-4 mb-8 sm:mb-10">
+                  <h3 className="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-transparent leading-tight">
                     Welcome to CineSensei
                   </h3>
-                  <p className="text-slate-400 text-xs sm:text-sm leading-relaxed max-w-md mx-auto px-2">
-                    Get personalized movie recommendations, detailed reviews, and discover your next favorite film.
+                  <p className="text-slate-400 text-sm sm:text-base leading-relaxed max-w-lg mx-auto px-2">
+                    Your AI-powered movie companion. Get personalized recommendations, insightful reviews, and discover hidden cinematic gems tailored just for you.
                   </p>
                 </div>
 
-                {/* Suggested Prompts */}
+                {/* Suggested Prompts with enhanced design */}
                 {showSuggestions && (
-                  <div className="space-y-3 sm:space-y-4">
-                    <div className="flex items-center justify-center gap-2 text-slate-500 text-xs font-medium mb-3 sm:mb-4">
-                      <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-yellow-500" />
-                      <span>Try asking</span>
+                  <div className="space-y-5 sm:space-y-6">
+                    <div className="flex items-center justify-center gap-2.5 text-slate-400 text-sm font-semibold">
+                      <Wand2 className="w-4 h-4 text-yellow-500" strokeWidth={2.5} />
+                      <span>Get Started</span>
+                      <div className="h-px w-12 bg-gradient-to-r from-slate-700 to-transparent" />
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-2xl mx-auto">
-                      {SUGGESTED_PROMPTS.map((prompt, index) => (
-                        <Button
-                          key={index}
-                          variant="outline"
-                          onClick={() => handleSuggestedPrompt(prompt)}
-                          className="group bg-slate-900 border-slate-800 text-slate-300 hover:text-white hover:border-yellow-500/40 hover:bg-slate-800 active:scale-98 text-left justify-start h-auto py-3 sm:py-3 px-3 sm:px-3.5 rounded-lg transition-all duration-200 touch-manipulation"
-                        >
-                          <div className="flex items-center gap-2 sm:gap-2.5 w-full">
-                            <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-slate-800 group-hover:bg-yellow-500/10 flex items-center justify-center flex-shrink-0 transition-colors">
-                              <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-yellow-500" />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl mx-auto">
+                      {SUGGESTED_PROMPTS.map((prompt, index) => {
+                        const Icon = prompt.icon
+                        return (
+                          <Button
+                            key={index}
+                            variant="outline"
+                            onClick={() => handleSuggestedPrompt(prompt.text)}
+                            className="group relative bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700/50 text-slate-300 hover:text-white hover:border-yellow-500/50 hover:shadow-lg hover:shadow-yellow-500/10 active:scale-98 text-left justify-start h-auto py-4 px-4 rounded-xl transition-all duration-300 touch-manipulation overflow-hidden"
+                          >
+                            {/* Animated gradient overlay */}
+                            <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/0 to-amber-500/0 group-hover:from-yellow-500/10 group-hover:to-amber-500/5 transition-all duration-300" />
+
+                            <div className="relative flex items-center gap-3 w-full">
+                              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-800 to-slate-700 group-hover:from-yellow-500/20 group-hover:to-amber-500/20 flex items-center justify-center flex-shrink-0 transition-all duration-300 shadow-lg group-hover:shadow-yellow-500/20">
+                                <Icon className="w-5 h-5 text-yellow-500 group-hover:scale-110 transition-transform duration-300" strokeWidth={2} />
+                              </div>
+                              <span className="text-sm font-medium leading-relaxed">{prompt.text}</span>
                             </div>
-                            <span className="text-xs font-medium leading-relaxed">{prompt}</span>
-                          </div>
-                        </Button>
-                      ))}
+                          </Button>
+                        )
+                      })}
                     </div>
                   </div>
                 )}
               </div>
             )}
 
-            {/* Chat Messages */}
+            {/* Enhanced Chat Messages */}
             {messages.map((message, index) => (
               <div
                 key={message.id}
                 className={cn(
-                  "flex gap-2 sm:gap-3 group",
+                  "flex gap-3 sm:gap-3.5 group animate-in fade-in-0 slide-in-from-bottom-2 duration-300",
                   message.role === "user" ? "justify-end" : "justify-start"
                 )}
               >
                 {message.role === "assistant" && (
                   <div className="flex-shrink-0 mt-1">
-                    <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-yellow-500 to-amber-600 rounded-lg flex items-center justify-center shadow-md">
-                      <MessageCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" strokeWidth={2.5} />
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-gradient-to-br from-yellow-400 to-amber-600 rounded-xl blur-sm opacity-50" />
+                      <div className="relative w-8 h-8 sm:w-9 sm:h-9 bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-600 rounded-xl flex items-center justify-center shadow-lg transform group-hover:scale-105 transition-transform">
+                        <Bot className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-white" strokeWidth={2} />
+                      </div>
                     </div>
                   </div>
                 )}
 
-                <div className="flex flex-col max-w-[85%] sm:max-w-[80%] min-w-0">
+                <div className="flex flex-col max-w-[82%] sm:max-w-[75%] min-w-0">
                   <div
                     className={cn(
-                      "rounded-2xl px-3 py-2.5 sm:px-4 sm:py-3 text-sm shadow-lg",
+                      "rounded-2xl px-4 py-3 sm:px-4.5 sm:py-3.5 shadow-xl backdrop-blur-sm transition-all duration-200",
                       message.role === "user"
-                        ? "bg-yellow-500 text-white ml-auto"
-                        : "bg-slate-900 text-slate-100 border border-slate-800",
+                        ? "bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-500 text-white ml-auto shadow-yellow-500/20"
+                        : "bg-gradient-to-br from-slate-800/90 to-slate-900/90 text-slate-100 border border-slate-700/50 shadow-slate-900/50",
                     )}
                   >
                     {message.content ? (
                       <div
-                        className="leading-relaxed [&>strong]:font-semibold [&>strong]:text-white [&>em]:italic text-xs sm:text-sm"
+                        className={cn(
+                          "leading-relaxed [&>strong]:font-bold [&>em]:italic text-sm sm:text-base",
+                          message.role === "user"
+                            ? "[&>strong]:text-white"
+                            : "[&>strong]:text-white [&>strong]:bg-yellow-500/10 [&>strong]:px-1 [&>strong]:rounded"
+                        )}
                         dangerouslySetInnerHTML={{ __html: parseMarkdown(message.content) }}
                       />
                     ) : (
-                      <div className="flex items-center gap-2 text-slate-400">
-                        <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-bounce" />
-                        <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
-                        <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-                        <span className="text-xs ml-1.5">Thinking...</span>
+                      <div className="flex items-center gap-2.5 text-slate-400">
+                        <div className="flex gap-1">
+                          <div className="w-2 h-2 bg-yellow-500 rounded-full animate-bounce" />
+                          <div className="w-2 h-2 bg-yellow-500 rounded-full animate-bounce [animation-delay:150ms]" />
+                          <div className="w-2 h-2 bg-yellow-500 rounded-full animate-bounce [animation-delay:300ms]" />
+                        </div>
+                        <span className="text-sm">Thinking...</span>
                       </div>
                     )}
                   </div>
 
                   {message.role === "assistant" && message.content && (
-                    <div className="flex items-center gap-1.5 mt-1.5 ml-1">
-                      <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-slate-600" />
-                      <span className="text-xs text-slate-600">AI</span>
+                    <div className="flex items-center gap-2 mt-2 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-800/50 rounded-lg border border-slate-700/50">
+                        <Sparkles className="w-3 h-3 text-yellow-500" />
+                        <span className="text-xs text-slate-400 font-medium">AI Generated</span>
+                      </div>
                     </div>
                   )}
                 </div>
 
                 {message.role === "user" && (
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 bg-slate-800 rounded-lg flex items-center justify-center flex-shrink-0 mt-1 shadow-md border border-slate-700">
-                    <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400" />
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 bg-gradient-to-br from-slate-700 to-slate-800 rounded-xl flex items-center justify-center flex-shrink-0 mt-1 shadow-lg border border-slate-600/50 transform group-hover:scale-105 transition-transform">
+                    <User className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-slate-300" strokeWidth={2} />
                   </div>
                 )}
               </div>
             ))}
 
-            {/* Loading State */}
+            {/* Enhanced Loading State */}
             {isLoading && (
-              <div className="flex gap-2 sm:gap-3 justify-start">
+              <div className="flex gap-3 sm:gap-3.5 justify-start animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
                 <div className="flex-shrink-0 mt-1">
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-yellow-500 to-amber-600 rounded-lg flex items-center justify-center shadow-md">
-                    <MessageCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white animate-pulse" strokeWidth={2.5} />
+                  <div className="relative">
+                    {isMounted && (
+                      <div className="absolute inset-0 bg-gradient-to-br from-yellow-400 to-amber-600 rounded-xl blur-sm opacity-50 animate-pulse" />
+                    )}
+                    <div className="relative w-8 h-8 sm:w-9 sm:h-9 bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-600 rounded-xl flex items-center justify-center shadow-lg">
+                      <Bot className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-white" strokeWidth={2} />
+                    </div>
                   </div>
                 </div>
-                <div className="bg-slate-900 text-slate-100 border border-slate-800 rounded-2xl px-3 py-2.5 sm:px-4 sm:py-3 shadow-lg">
-                  <div className="flex items-center gap-2">
-                    <div className="flex gap-1">
-                      <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-bounce"></div>
-                      <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-bounce" style={{ animationDelay: "0.1s" }}></div>
-                      <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
+                <div className="bg-gradient-to-br from-slate-800/90 to-slate-900/90 text-slate-100 border border-slate-700/50 rounded-2xl px-4 py-3 sm:px-4.5 sm:py-3.5 shadow-xl backdrop-blur-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="flex gap-1.5">
+                      <div className="w-2 h-2 bg-yellow-500 rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-yellow-500 rounded-full animate-bounce [animation-delay:150ms]"></div>
+                      <div className="w-2 h-2 bg-yellow-500 rounded-full animate-bounce [animation-delay:300ms]"></div>
                     </div>
-                    <span className="text-xs sm:text-sm text-slate-300">Thinking...</span>
+                    <span className="text-sm text-slate-300">Analyzing your request...</span>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Error State */}
+            {/* Enhanced Error State */}
             {error && (
-              <div className="bg-red-950/50 border border-red-900/50 rounded-lg p-3 sm:p-4 text-center">
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <div className="w-7 h-7 sm:w-8 sm:h-8 bg-red-500/20 rounded-lg flex items-center justify-center">
-                    <AlertCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-400" />
+              <div className="relative bg-gradient-to-br from-red-950/50 to-red-900/30 border border-red-800/50 rounded-2xl p-5 sm:p-6 text-center backdrop-blur-sm shadow-xl animate-in fade-in-0 zoom-in-95 duration-300">
+                <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent rounded-2xl pointer-events-none" />
+
+                <div className="relative space-y-4">
+                  <div className="flex items-center justify-center gap-3">
+                    <div className="w-12 h-12 bg-gradient-to-br from-red-500/20 to-red-600/20 rounded-xl flex items-center justify-center shadow-lg">
+                      <AlertCircle className="w-6 h-6 text-red-400" strokeWidth={2} />
+                    </div>
                   </div>
-                  <p className="text-red-300 text-xs sm:text-sm font-medium">Something went wrong</p>
+
+                  <div className="space-y-2">
+                    <p className="text-red-300 text-sm sm:text-base font-semibold">Oops! Something went wrong</p>
+                    <p className="text-red-400/80 text-xs sm:text-sm max-w-sm mx-auto leading-relaxed">
+                      {error.message || "I couldn't process that request. Please try again."}
+                    </p>
+                  </div>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => reload()}
+                    className="bg-red-950/50 border-red-700/50 text-red-300 hover:bg-red-900/50 hover:border-red-600/50 hover:text-white rounded-xl active:scale-95 touch-manipulation transition-all duration-200 shadow-lg"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 mr-2" strokeWidth={2} />
+                    Try Again
+                  </Button>
                 </div>
-                <p className="text-red-400/80 text-xs mb-3 max-w-sm mx-auto">
-                  {error.message || "Please try again"}
-                </p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => reload()}
-                  className="border-red-800 text-red-300 hover:bg-red-950 hover:border-red-700 rounded-lg active:scale-95 touch-manipulation"
-                >
-                  <RotateCcw className="w-3 h-3 mr-1.5" />
-                  Try Again
-                </Button>
               </div>
             )}
           </div>
         </ScrollArea>
 
-        {/* Input Form */}
-        <div className="relative border-t border-slate-800 bg-slate-900/95 backdrop-blur-lg p-3 sm:p-4 pb-safe">
+        {/* Professional Input Form */}
+        <div className="relative border-t border-slate-700/50 bg-gradient-to-b from-slate-900/98 to-slate-900 backdrop-blur-xl p-4 sm:p-5 pb-safe shadow-2xl">
+          {/* Subtle top glow */}
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-yellow-500/20 to-transparent" />
+
           <div className="relative">
-            <form onSubmit={handleFormSubmit} className="flex items-end gap-2 sm:gap-3">
-              <div className="flex-1 relative">
+            <form onSubmit={handleFormSubmit} className="flex items-end gap-3">
+              <div className="flex-1 relative group">
+                {/* Glow effect on focus */}
+                <div className="absolute -inset-0.5 bg-gradient-to-r from-yellow-500 to-amber-500 rounded-2xl opacity-0 group-focus-within:opacity-20 blur transition-opacity duration-300" />
+
                 <Textarea
                   value={input}
                   onChange={handleInputChange}
-                  placeholder="Ask about movies..."
-                  className="bg-slate-800 border border-slate-700 text-white placeholder:text-slate-500 resize-none min-h-[44px] sm:min-h-[48px] max-h-32 rounded-xl px-3 py-2.5 sm:px-4 sm:py-3 text-sm sm:text-base focus:border-yellow-500/50 focus:ring-1 focus:ring-yellow-500/20 transition-colors shadow-sm touch-manipulation"
+                  placeholder="Ask me anything about movies..."
+                  className="relative bg-slate-800/80 border border-slate-700 text-white placeholder:text-slate-500 resize-none min-h-[52px] sm:min-h-[56px] max-h-36 rounded-2xl px-4 py-3.5 sm:px-5 sm:py-4 text-sm sm:text-base focus:border-yellow-500/50 focus:ring-2 focus:ring-yellow-500/20 transition-all shadow-lg backdrop-blur-sm touch-manipulation"
                   rows={1}
                   disabled={isLoading}
                   onKeyDown={(e) => {
@@ -441,30 +477,38 @@ export function FloatingChatButton() {
                 />
               </div>
 
-              {/* Send button */}
+              {/* Enhanced Send button */}
               <Button
                 type="submit"
                 size="icon"
-                className="bg-gradient-to-br from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700 active:scale-95 text-white rounded-xl h-11 w-11 sm:h-12 sm:w-12 shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation flex-shrink-0"
+                className="group relative bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-600 hover:from-yellow-500 hover:via-yellow-600 hover:to-amber-700 active:scale-95 text-white rounded-2xl h-[52px] w-[52px] sm:h-[56px] sm:w-[56px] shadow-xl hover:shadow-yellow-500/30 hover:shadow-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation flex-shrink-0 overflow-hidden"
                 disabled={isLoading || !input.trim()}
               >
+                {/* Shine effect */}
+                <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/20 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity" />
+
                 {isLoading ? (
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <div className="relative w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
-                  <Send className="h-4 w-4 sm:h-4.5 sm:w-4.5" strokeWidth={2.5} />
+                  <Send className="relative h-5 w-5 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" strokeWidth={2} />
                 )}
               </Button>
             </form>
 
-            {/* Footer */}
-            <div className="flex items-center justify-between mt-2 sm:mt-3">
-              <div className="flex items-center gap-2 sm:gap-3 text-xs text-slate-500">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
-                  <span className="text-xs">Ready</span>
+            {/* Enhanced Footer */}
+            <div className="flex items-center justify-between mt-3 sm:mt-4">
+              <div className="flex items-center gap-3 text-xs text-slate-500">
+                <div className="flex items-center gap-2 px-2.5 py-1.5 bg-slate-800/50 rounded-lg border border-slate-700/50">
+                  <div className="relative">
+                    <div className="w-2 h-2 bg-green-400 rounded-full" />
+                    {isMounted && (
+                      <div className="absolute inset-0 w-2 h-2 bg-green-400 rounded-full animate-ping opacity-75" />
+                    )}
+                  </div>
+                  <span className="text-xs font-medium text-slate-400">Online</span>
                 </div>
                 <span className="text-slate-700 hidden sm:inline">•</span>
-                <span className="hidden sm:inline text-xs">Enter to send • Shift+Enter for new line</span>
+                <span className="hidden sm:inline text-xs text-slate-500">⏎ Send • ⇧⏎ New line</span>
               </div>
 
               {messages.length > 0 && (
@@ -472,13 +516,19 @@ export function FloatingChatButton() {
                   variant="ghost"
                   size="sm"
                   onClick={reload}
-                  className="h-7 px-2 text-xs text-slate-500 hover:text-slate-300 hover:bg-slate-800 active:scale-95 rounded-lg touch-manipulation"
+                  className="h-8 px-3 text-xs text-slate-400 hover:text-white hover:bg-slate-800 active:scale-95 rounded-xl touch-manipulation transition-all duration-200 border border-transparent hover:border-slate-700/50"
                 >
-                  <RotateCcw className="w-3 h-3 mr-1" />
-                  Clear
+                  <RotateCcw className="w-3.5 h-3.5 mr-1.5" strokeWidth={2} />
+                  Clear Chat
                 </Button>
               )}
             </div>
+          </div>
+
+          {/* Powered by badge */}
+          <div className="flex items-center justify-center gap-2 mt-4 pt-3 border-t border-slate-800/50">
+            <Sparkles className="w-3.5 h-3.5 text-yellow-500/70" />
+            <span className="text-xs text-slate-600 font-medium">Powered by Gemini AI</span>
           </div>
         </div>
       </SheetContent>

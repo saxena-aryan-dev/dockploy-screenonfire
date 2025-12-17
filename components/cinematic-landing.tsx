@@ -13,11 +13,9 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
-import { AuthModal } from "@/components/auth-modal"
 import { OptimizedImage } from "@/components/optimized-image"
 import MovieGrid from "@/components/movie-grid"
 import { PopularMoviesCarousel } from "@/components/popular-movies-carousel"
-import { supabase, type WatchlistItem } from "@/lib/supabase"
 import { useScrollY } from "@/hooks/useScrollAnimation"
 import {
   getGenres,
@@ -26,8 +24,9 @@ import {
   getTopRatedMovies,
   discoverMovies,
   getIndianMovies,
-  getBollywoodMovies,
-  getHindiMovies,
+  getPopularSeries,
+  getTopRatedSeries,
+  getIndianSeries,
   getImageUrl,
   type TMDBMovie,
   type TMDBGenre,
@@ -35,9 +34,6 @@ import {
 import { getYear } from "@/lib/date"
 
 export default function CinematicLanding() {
-  const [authUser, setAuthUser] = useState<any | null>(null)
-  const [showAuthModal, setShowAuthModal] = useState(false)
-  const [watchlist, setWatchlist] = useState<WatchlistItem[]>([])
   const [movies, setMovies] = useState<TMDBMovie[]>([])
   const [genres, setGenres] = useState<TMDBGenre[]>([])
   const [searchQuery, setSearchQuery] = useState("")
@@ -48,10 +44,12 @@ export default function CinematicLanding() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [hasMore, setHasMore] = useState(true)
-  const [activeTab, setActiveTab] = useState<"popular" | "top-rated" | "search" | "discover" | "indian">("popular")
+  const [activeTab, setActiveTab] = useState<"popular" | "top-rated" | "search" | "discover" | "indian" | "trending">("popular")
   const [showFilters, setShowFilters] = useState(false)
   const [watchedMovies, setWatchedMovies] = useState<Set<string>>(new Set())
   const [featuredMovie, setFeaturedMovie] = useState<TMDBMovie | null>(null)
+  const [contentType, setContentType] = useState<"movies" | "series">("movies")
+  const [sortType, setSortType] = useState<"popular" | "trending" | "top-rated" | "indian">("popular")
 
   const router = useRouter()
   const scrollY = useScrollY()
@@ -80,29 +78,6 @@ export default function CinematicLanding() {
   const bgColorProgress = Math.min(1, scrollY / heroHeight)
   const backgroundColor = `rgb(${bgColorProgress * 17}, ${bgColorProgress * 24}, ${bgColorProgress * 39})`
 
-  useEffect(() => {
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setAuthUser(session?.user ?? null)
-      if (session?.user) {
-        loadUserWatchlist(session.user.id)
-      }
-    })
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setAuthUser(session?.user ?? null)
-      if (session?.user) {
-        loadUserWatchlist(session.user.id)
-      } else {
-        setWatchlist([])
-      }
-    })
-
-    return () => subscription.unsubscribe()
-  }, [])
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -137,112 +112,102 @@ export default function CinematicLanding() {
     return () => clearInterval(interval)
   }, [movies, featuredMovie])
 
-  const loadUserWatchlist = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("watchlist")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
 
-      if (error) {
-        if (error.code === "42P01") {
-          console.warn("The watchlist table is missing – run scripts/create-watchlist-table.sql")
-          return
+  // Unified content loading function
+  const loadContent = useCallback(async (
+    type: "movies" | "series",
+    sort: "popular" | "trending" | "top-rated" | "indian",
+    page = 1,
+    append = false
+  ) => {
+    setIsLoading(true)
+    try {
+      let data
+
+      // Load content based on type and sort
+      if (sort === "indian") {
+        // Indian content for movies or series
+        if (type === "movies") {
+          data = await getIndianMovies(page)
+        } else {
+          const seriesData = await getIndianSeries(page)
+          data = {
+            ...seriesData,
+            results: seriesData.results.map((s: any) => ({
+              ...s,
+              title: s.name,
+              release_date: s.first_air_date,
+              media_type: 'tv'
+            }))
+          }
         }
-        throw error
+      } else if (type === "movies") {
+        if (sort === "popular") data = await getPopularMovies(page)
+        else if (sort === "trending") data = await getPopularMovies(page)
+        else data = await getTopRatedMovies(page)
+      } else if (type === "series") {
+        if (sort === "popular") {
+          const seriesData = await getPopularSeries(page)
+          data = {
+            ...seriesData,
+            results: seriesData.results.map((s: any) => ({
+              ...s,
+              title: s.name,
+              release_date: s.first_air_date,
+              media_type: 'tv'
+            }))
+          }
+        } else if (sort === "trending") {
+          const seriesData = await getPopularSeries(page)
+          data = {
+            ...seriesData,
+            results: seriesData.results.map((s: any) => ({
+              ...s,
+              title: s.name,
+              release_date: s.first_air_date,
+              media_type: 'tv'
+            }))
+          }
+        } else {
+          const seriesData = await getTopRatedSeries(page)
+          data = {
+            ...seriesData,
+            results: seriesData.results.map((s: any) => ({
+              ...s,
+              title: s.name,
+              release_date: s.first_air_date,
+              media_type: 'tv'
+            }))
+          }
+        }
       }
 
-      setWatchlist(data ?? [])
-    } catch (err) {
-      console.error("Error loading watchlist:", err)
+      setMovies(prev => append ? [...prev, ...data.results] : data.results)
+      setTotalPages(data.total_pages)
+      setCurrentPage(page)
+      setHasMore(page < data.total_pages)
+      setContentType(type)
+      setSortType(sort)
+      setActiveTab(sort)
+      if (page === 1 && !append && data.results.length > 0) setFeaturedMovie(data.results[0])
+    } catch (error) {
+      console.error(`Error loading ${type} (${sort}):`, error)
+    } finally {
+      setIsLoading(false)
     }
-  }
+  }, [])
 
   const loadPopularMovies = useCallback(async (page = 1, append = false) => {
-    setIsLoading(true)
-    try {
-      const data = await getPopularMovies(page)
-      setMovies(prev => append ? [...prev, ...data.results] : data.results)
-      setTotalPages(data.total_pages)
-      setCurrentPage(page)
-      setHasMore(page < data.total_pages)
-      setActiveTab("popular")
-      if (page === 1 && !append) setFeaturedMovie(data.results[0])
-    } catch (error) {
-      console.error("Error loading popular movies:", error)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
+    await loadContent("movies", "popular", page, append)
+  }, [loadContent])
 
   const loadTopRatedMovies = useCallback(async (page = 1, append = false) => {
-    setIsLoading(true)
-    try {
-      const data = await getTopRatedMovies(page)
-      setMovies(prev => append ? [...prev, ...data.results] : data.results)
-      setTotalPages(data.total_pages)
-      setCurrentPage(page)
-      setHasMore(page < data.total_pages)
-      setActiveTab("top-rated")
-      if (page === 1 && !append) setFeaturedMovie(data.results[0])
-    } catch (error) {
-      console.error("Error loading top rated movies:", error)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
+    await loadContent(contentType, "top-rated", page, append)
+  }, [loadContent, contentType])
 
   const loadIndianMovies = useCallback(async (page = 1, append = false) => {
-    setIsLoading(true)
-    try {
-      const data = await getIndianMovies(page)
-      setMovies(prev => append ? [...prev, ...data.results] : data.results)
-      setTotalPages(data.total_pages)
-      setCurrentPage(page)
-      setHasMore(page < data.total_pages)
-      setActiveTab("indian")
-      if (page === 1 && !append) setFeaturedMovie(data.results[0])
-    } catch (error) {
-      console.error("Error loading Indian movies:", error)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
-
-  const loadBollywoodMovies = useCallback(async (page = 1, append = false) => {
-    setIsLoading(true)
-    try {
-      const data = await getBollywoodMovies(page)
-      setMovies(prev => append ? [...prev, ...data.results] : data.results)
-      setTotalPages(data.total_pages)
-      setCurrentPage(page)
-      setHasMore(page < data.total_pages)
-      setActiveTab("indian")
-      if (page === 1 && !append) setFeaturedMovie(data.results[0])
-    } catch (error) {
-      console.error("Error loading Bollywood movies:", error)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
-
-  const loadHindiMovies = useCallback(async (page = 1, append = false) => {
-    setIsLoading(true)
-    try {
-      const data = await getHindiMovies(page)
-      setMovies(prev => append ? [...prev, ...data.results] : data.results)
-      setTotalPages(data.total_pages)
-      setCurrentPage(page)
-      setHasMore(page < data.total_pages)
-      setActiveTab("indian")
-      if (page === 1 && !append) setFeaturedMovie(data.results[0])
-    } catch (error) {
-      console.error("Error loading Hindi movies:", error)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
+    await loadContent(contentType, "indian", page, append)
+  }, [loadContent, contentType])
 
   const handleSearch = useCallback(async (page = 1, append = false) => {
     if (!searchQuery.trim()) return
@@ -309,10 +274,9 @@ export default function CinematicLanding() {
     const nextPage = currentPage + 1
     switch (activeTab) {
       case "popular":
-        loadPopularMovies(nextPage, true)
-        break
+      case "trending":
       case "top-rated":
-        loadTopRatedMovies(nextPage, true)
+        loadContent(contentType, sortType, nextPage, true)
         break
       case "search":
         handleSearch(nextPage, true)
@@ -327,91 +291,17 @@ export default function CinematicLanding() {
   }
 
   const addToWatchlist = useCallback(async (movie: TMDBMovie) => {
-    if (!authUser) {
-      setShowAuthModal(true)
-      return
-    }
-
-    if (isInWatchlist(movie.id.toString())) {
-      return
-    }
-
-    const watchlistItem = {
-      id: crypto.randomUUID(),
-      user_id: authUser.id,
-      movie_id: movie.id.toString(),
-      title: movie.title,
-      poster_url: getImageUrl(movie.poster_path),
-      created_at: new Date().toISOString(),
-    }
-
-    setWatchlist((prev) => [watchlistItem, ...prev])
-
-    try {
-      const { data, error } = await supabase.from("watchlist").insert([{
-        user_id: watchlistItem.user_id,
-        movie_id: watchlistItem.movie_id,
-        title: watchlistItem.title,
-        poster_url: watchlistItem.poster_url,
-      }]).select()
-
-      if (error) {
-        setWatchlist((prev) => prev.filter((item) => item.movie_id !== movie.id.toString()))
-        if (error.code === "42P01") {
-          alert("Watchlist table doesn't exist. Please run the SQL script.")
-          return
-        }
-        if (error.code === "23505") {
-          return
-        }
-        throw error
-      }
-
-      if (data && data.length > 0) {
-        setWatchlist((prev) => prev.map((item) =>
-          item.movie_id === movie.id.toString() && item.id === watchlistItem.id
-            ? data[0]
-            : item
-        ))
-      }
-    } catch (error) {
-      console.error("Error adding to watchlist:", error)
-      alert("Failed to add movie to watchlist. Please try again.")
-    }
-  }, [authUser])
+    // Watchlist functionality removed - authentication required
+    console.log("Watchlist feature requires authentication")
+  }, [])
 
   const removeFromWatchlist = useCallback(async (movieId: string) => {
-    if (!authUser) return
-
-    const previousWatchlist = watchlist
-    setWatchlist((prev) => prev.filter((item) => item.movie_id !== movieId))
-
-    try {
-      const { error } = await supabase.from("watchlist").delete().eq("user_id", authUser.id).eq("movie_id", movieId)
-
-      if (error) {
-        setWatchlist(previousWatchlist)
-        console.error("Supabase delete error:", error)
-        throw error
-      }
-    } catch (error) {
-      console.error("Error removing from watchlist:", error)
-      alert("Failed to remove movie from watchlist")
-    }
-  }, [authUser, watchlist])
-
-  const watchlistMovieIds = useMemo(() =>
-    new Set(watchlist.map(item => item.movie_id)),
-    [watchlist]
-  )
+    // Watchlist functionality removed
+  }, [])
 
   const isInWatchlist = useCallback((movieId: string) => {
-    return watchlistMovieIds.has(movieId)
-  }, [watchlistMovieIds])
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-  }
+    return false
+  }, [])
 
   const handleMarkAsWatched = useCallback((movieId: string) => {
     setWatchedMovies((prev) => {
@@ -437,6 +327,7 @@ export default function CinematicLanding() {
     <div
       className="min-h-screen text-white transition-colors duration-700"
       style={{ backgroundColor }}
+      suppressHydrationWarning
     >
       {/* Floating Header */}
       <motion.header
@@ -445,6 +336,7 @@ export default function CinematicLanding() {
           borderColor: `rgba(75, 85, 99, ${bgColorProgress})`,
           backgroundColor: `rgba(0, 0, 0, ${Math.min(0.95, bgColorProgress * 0.95)})`
         }}
+        suppressHydrationWarning
       >
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between gap-2">
@@ -453,38 +345,93 @@ export default function CinematicLanding() {
               <OptimizedImage
                 src="/logo.png"
                 alt="Screen On Fire"
-                width={40}
-                height={40}
-                className="w-8 h-8 md:w-10 md:h-10 object-contain"
+                width={48}
+                height={48}
+                className="w-10 h-10 md:w-12 md:h-12 object-contain"
                 priority={true}
               />
               <span className="text-lg md:text-xl font-bold hidden sm:inline">ScreenOnFire</span>
             </div>
 
             {/* Desktop Navigation */}
-            <nav className="hidden lg:flex items-center gap-4">
-              <Button variant="ghost" size="sm" onClick={() => loadPopularMovies()} className="text-gray-300 hover:text-white">
-                Popular
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => loadTopRatedMovies()} className="text-gray-300 hover:text-white">
-                Top Rated
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => loadIndianMovies()} className="text-gray-300 hover:text-white">
-                🇮🇳 Indian
-              </Button>
+            <nav className="hidden lg:flex items-center gap-2">
+              {/* Content Type Selector */}
+              <div className="flex items-center gap-1 bg-gray-800/50 rounded-lg p-1">
+                <Button
+                  variant={contentType === "movies" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => {
+                    setContentType("movies")
+                    loadContent("movies", sortType)
+                  }}
+                  className={contentType === "movies" ? "bg-yellow-500 text-black hover:bg-yellow-600" : "text-gray-300 hover:text-white hover:bg-gray-700"}
+                >
+                  Movies
+                </Button>
+                <Button
+                  variant={contentType === "series" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => {
+                    setContentType("series")
+                    loadContent("series", sortType)
+                  }}
+                  className={contentType === "series" ? "bg-yellow-500 text-black hover:bg-yellow-600" : "text-gray-300 hover:text-white hover:bg-gray-700"}
+                >
+                  Series
+                </Button>
+              </div>
+
+              {/* Sort Type Selector */}
+              <div className="flex items-center gap-1 bg-gray-800/50 rounded-lg p-1">
+                <Button
+                  variant={sortType === "popular" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => {
+                    setSortType("popular")
+                    loadContent(contentType, "popular")
+                  }}
+                  className={sortType === "popular" ? "bg-yellow-500 text-black hover:bg-yellow-600" : "text-gray-300 hover:text-white hover:bg-gray-700"}
+                >
+                  Popular
+                </Button>
+                <Button
+                  variant={sortType === "trending" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => {
+                    setSortType("trending")
+                    loadContent(contentType, "trending")
+                  }}
+                  className={sortType === "trending" ? "bg-yellow-500 text-black hover:bg-yellow-600" : "text-gray-300 hover:text-white hover:bg-gray-700"}
+                >
+                  Trending
+                </Button>
+                <Button
+                  variant={sortType === "top-rated" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => {
+                    setSortType("top-rated")
+                    loadContent(contentType, "top-rated")
+                  }}
+                  className={sortType === "top-rated" ? "bg-yellow-500 text-black hover:bg-yellow-600" : "text-gray-300 hover:text-white hover:bg-gray-700"}
+                >
+                  Top Rated
+                </Button>
+                <Button
+                  variant={sortType === "indian" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => {
+                    setSortType("indian")
+                    loadContent(contentType, "indian")
+                  }}
+                  className={sortType === "indian" ? "bg-yellow-500 text-black hover:bg-yellow-600" : "text-gray-300 hover:text-white hover:bg-gray-700"}
+                >
+                  🇮🇳 Indian
+                </Button>
+              </div>
+
               <Button variant="ghost" size="sm" onClick={() => router.push("/recommendations")} className="text-gray-300 hover:text-white">
                 🤖 AI
               </Button>
-              {authUser && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => router.push("/watchlist")}
-                  className="text-gray-300 hover:text-white"
-                >
-                  Watchlist ({watchlist.length})
-                </Button>
-              )}
             </nav>
 
             {/* Right Side Actions */}
@@ -500,32 +447,6 @@ export default function CinematicLanding() {
                   className="pl-10 w-48 lg:w-64 bg-gray-900 border-gray-700 text-white placeholder-gray-400 focus:border-yellow-500"
                 />
               </div>
-
-              {authUser ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-300 hidden md:block truncate max-w-[120px]">
-                    {authUser.user_metadata?.full_name || authUser.email}
-                  </span>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={handleSignOut}
-                    className="text-gray-400 hover:text-white"
-                  >
-                    <LogOut className="h-5 w-5" />
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowAuthModal(true)}
-                  className="border-gray-700 text-white bg-gray-800"
-                >
-                  <span className="hidden sm:inline">Sign In</span>
-                  <span className="sm:hidden">Login</span>
-                </Button>
-              )}
             </div>
           </div>
 
@@ -542,29 +463,83 @@ export default function CinematicLanding() {
           </div>
 
           {/* Mobile Quick Nav */}
-          <div className="lg:hidden mt-3 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-            <Button variant="ghost" size="sm" onClick={() => loadPopularMovies()} className="text-gray-300 hover:text-white whitespace-nowrap">
-              Popular
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => loadTopRatedMovies()} className="text-gray-300 hover:text-white whitespace-nowrap">
-              Top Rated
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => loadIndianMovies()} className="text-gray-300 hover:text-white whitespace-nowrap">
-              🇮🇳 Indian
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => router.push("/recommendations")} className="text-gray-300 hover:text-white whitespace-nowrap">
-              🤖 AI
-            </Button>
-            {authUser && (
+          <div className="lg:hidden mt-3 space-y-2">
+            {/* Content Type Selector - Mobile */}
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
               <Button
-                variant="ghost"
+                variant={contentType === "movies" ? "default" : "ghost"}
                 size="sm"
-                onClick={() => router.push("/watchlist")}
-                className="text-gray-300 hover:text-white whitespace-nowrap"
+                onClick={() => {
+                  setContentType("movies")
+                  loadContent("movies", sortType)
+                }}
+                className={`whitespace-nowrap ${contentType === "movies" ? "bg-yellow-500 text-black hover:bg-yellow-600" : "text-gray-300 hover:text-white"}`}
               >
-                Watchlist ({watchlist.length})
+                Movies
               </Button>
-            )}
+              <Button
+                variant={contentType === "series" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => {
+                  setContentType("series")
+                  loadContent("series", sortType)
+                }}
+                className={`whitespace-nowrap ${contentType === "series" ? "bg-yellow-500 text-black hover:bg-yellow-600" : "text-gray-300 hover:text-white"}`}
+              >
+                Series
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => router.push("/recommendations")} className="text-gray-300 hover:text-white whitespace-nowrap">
+                🤖 AI
+              </Button>
+            </div>
+
+            {/* Sort Type Selector - Mobile */}
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              <Button
+                variant={sortType === "popular" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => {
+                  setSortType("popular")
+                  loadContent(contentType, "popular")
+                }}
+                className={`whitespace-nowrap ${sortType === "popular" ? "bg-yellow-500 text-black hover:bg-yellow-600" : "text-gray-300 hover:text-white"}`}
+              >
+                Popular
+              </Button>
+              <Button
+                variant={sortType === "trending" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => {
+                  setSortType("trending")
+                  loadContent(contentType, "trending")
+                }}
+                className={`whitespace-nowrap ${sortType === "trending" ? "bg-yellow-500 text-black hover:bg-yellow-600" : "text-gray-300 hover:text-white"}`}
+              >
+                Trending
+              </Button>
+              <Button
+                variant={sortType === "top-rated" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => {
+                  setSortType("top-rated")
+                  loadContent(contentType, "top-rated")
+                }}
+                className={`whitespace-nowrap ${sortType === "top-rated" ? "bg-yellow-500 text-black hover:bg-yellow-600" : "text-gray-300 hover:text-white"}`}
+              >
+                Top Rated
+              </Button>
+              <Button
+                variant={sortType === "indian" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => {
+                  setSortType("indian")
+                  loadContent(contentType, "indian")
+                }}
+                className={`whitespace-nowrap ${sortType === "indian" ? "bg-yellow-500 text-black hover:bg-yellow-600" : "text-gray-300 hover:text-white"}`}
+              >
+                🇮🇳 Indian
+              </Button>
+            </div>
           </div>
         </div>
       </motion.header>
@@ -579,6 +554,7 @@ export default function CinematicLanding() {
             scale: heroScale,
             filter: `blur(${heroBlur}px)`,
           }}
+          suppressHydrationWarning
         >
           <div className="absolute inset-0 bg-black/75" />
         </motion.div>
@@ -590,6 +566,7 @@ export default function CinematicLanding() {
             opacity: heroOpacity,
             y: -scrollY * 0.5, // Parallax effect
           }}
+          suppressHydrationWarning
         >
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -630,18 +607,6 @@ export default function CinematicLanding() {
                 <Sparkles className="w-5 h-5 mr-2" />
                 AI Recommendations
               </Button>
-
-              {authUser && (
-                <Button
-                  size="lg"
-                  variant="outline"
-                  onClick={() => router.push('/watchlist')}
-                  className="border-gray-600 text-white hover:bg-gray-800 bg-transparent transition-all duration-300 hover:scale-105"
-                >
-                  <Heart className="w-5 h-5 mr-2" />
-                  My Watchlist ({watchlist.length})
-                </Button>
-              )}
             </div>
 
             {/* Quick stats */}
@@ -668,6 +633,7 @@ export default function CinematicLanding() {
           style={{ opacity: heroOpacity }}
           animate={{ y: [0, 10, 0] }}
           transition={{ duration: 2, repeat: Infinity }}
+          suppressHydrationWarning
         >
           <div className="flex flex-col items-center gap-2 text-gray-400">
             <span className="text-sm">Scroll to explore</span>
@@ -682,6 +648,7 @@ export default function CinematicLanding() {
         style={{
           opacity: discoverOpacity,
         }}
+        suppressHydrationWarning
       >
         {/* Background with animated gradient */}
         <div className="absolute inset-0 bg-gradient-to-b from-black via-gray-900 to-black" />
@@ -891,15 +858,22 @@ export default function CinematicLanding() {
               <div className="mb-4 md:mb-0">
                 <h2 className="text-3xl md:text-4xl lg:text-5xl font-black mb-3 tracking-tight">
                   <span className="bg-gradient-to-r from-white via-yellow-100 to-yellow-500 bg-clip-text text-transparent">
-                    {activeTab === "popular" && "Popular Movies"}
-                    {activeTab === "top-rated" && "Top Rated Movies"}
                     {activeTab === "search" && `Search Results for "${searchQuery}"`}
                     {activeTab === "discover" && "Discover Movies"}
-                    {activeTab === "indian" && "🇮🇳 Indian Movies"}
+                    {(activeTab === "popular" || activeTab === "trending" || activeTab === "top-rated" || activeTab === "indian") && (
+                      <>
+                        {sortType === "popular" && "Popular "}
+                        {sortType === "trending" && "Trending "}
+                        {sortType === "top-rated" && "Top Rated "}
+                        {sortType === "indian" && "🇮🇳 Indian "}
+                        {contentType === "movies" && "Movies"}
+                        {contentType === "series" && "Series"}
+                      </>
+                    )}
                   </span>
                 </h2>
                 <p className="text-gray-400 text-sm md:text-base font-medium">
-                  {movies.length > 0 ? `Showing ${movies.length} ${movies.length === 1 ? 'movie' : 'movies'}` : 'Loading movies...'}
+                  {movies.length > 0 ? `Showing ${movies.length} ${contentType === "series" ? (movies.length === 1 ? 'series' : 'series') : (movies.length === 1 ? 'movie' : 'movies')}` : 'Loading...'}
                 </p>
               </div>
 
@@ -1005,8 +979,8 @@ export default function CinematicLanding() {
               )}
             </AnimatePresence>
 
-            {/* Carousel for Popular/Top Rated/Indian */}
-            {(activeTab === "popular" || activeTab === "top-rated" || activeTab === "indian") && movies.length > 0 && (
+            {/* Carousel for Popular/Top Rated/Trending/Indian */}
+            {(activeTab === "popular" || activeTab === "top-rated" || activeTab === "trending" || activeTab === "indian") && movies.length > 0 && (
               <motion.div
                 className="mb-10"
                 initial={{ opacity: 0 }}
@@ -1017,9 +991,22 @@ export default function CinematicLanding() {
                 <PopularMoviesCarousel
                   movies={movies}
                   title={
-                    activeTab === "popular" ? "Most popular movies this week" :
-                    activeTab === "top-rated" ? "Top rated movies of all time" :
-                    "Trending Indian Cinema"
+                    sortType === "popular" ? (
+                      contentType === "movies" ? "Most popular movies this week" :
+                      "Most popular series this week"
+                    ) :
+                    sortType === "trending" ? (
+                      contentType === "movies" ? "Trending movies now" :
+                      "Trending series now"
+                    ) :
+                    sortType === "indian" ? (
+                      contentType === "movies" ? "Popular Indian movies" :
+                      "Popular Indian series"
+                    ) :
+                    (
+                      contentType === "movies" ? "Top rated movies of all time" :
+                      "Top rated series of all time"
+                    )
                   }
                   isInWatchlist={isInWatchlist}
                   onAddToWatchlist={addToWatchlist}
@@ -1085,8 +1072,6 @@ export default function CinematicLanding() {
           </div>
         </div>
       </motion.section>
-
-      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} onAuthSuccess={() => {}} />
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-export const runtime = 'edge';
+// Removed edge runtime to fix Windows development build issues
+// export const runtime = 'edge';
 
 const TMDB_IMAGE_BASE_URL = 'https://image.tmdb.org';
 

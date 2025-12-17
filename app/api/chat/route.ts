@@ -1,6 +1,3 @@
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs"
-import { cookies } from "next/headers"
-
 export const maxDuration = 30
 
 interface UserMovieData {
@@ -52,35 +49,18 @@ Use this profile to personalize recommendations and avoid suggesting movies they
 
 export async function POST(req: Request) {
   try {
-    // Create a Supabase client – it's fine if the user is not authenticated
-    const supabase = createRouteHandlerClient({ cookies })
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-
     const { messages, stream } = await req.json()
 
     if (!messages || !Array.isArray(messages)) {
       return Response.json({ error: "Invalid message format" }, { status: 400 })
     }
 
-
     if (!process.env.GEMINI_API_KEY) {
       throw new Error("GEMINI_API_KEY is not configured")
     }
 
-    // If the user IS logged-in fetch their movie data, otherwise fall back to empty lists
-    let userMovieData = { likes: [], watchlist: [], seen: [] }
-    if (session?.user) {
-      try {
-        const { data } = await supabase.rpc("get_user_movies", {
-          p_user_id: session.user.id,
-        })
-        if (data) userMovieData = data
-      } catch (error) {
-        // Could not fetch user movie data, using defaults
-      }
-    }
+    // No user authentication - use empty movie profile
+    const userMovieData = { likes: [], watchlist: [], seen: [] }
 
     // Build the conversation prompt
     const prompt = buildChatPrompt(messages, userMovieData)

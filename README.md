@@ -5,8 +5,8 @@
 [![Next.js](https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3-38bdf8?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
-[![Supabase](https://img.shields.io/badge/Supabase-Backend-3ecf8e?style=for-the-badge&logo=supabase)](https://supabase.com/)
-[![Vercel](https://img.shields.io/badge/Deploy-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14+-blue?style=for-the-badge&logo=postgresql)](https://postgresql.org/)
+[![Prisma](https://img.shields.io/badge/Prisma-ORM-2D3748?style=for-the-badge&logo=prisma)](https://www.prisma.io/)
 
 ## 🌟 Features
 
@@ -15,14 +15,13 @@
 - **AI-Powered Recommendations**: Machine learning algorithm analyzes your preferences for personalized suggestions
 - **Intelligent Search**: Real-time TMDB search with autocomplete
 - **Movie Details**: Comprehensive information including cast, crew, trailers, and watch providers
-- **User Watchlists**: Save movies to watch later with personalized collections
-- **Movie Ratings**: Like/dislike system to track your preferences
-- **Discussion Forums**: Threaded discussions for each movie with reactions
+- **AI Chat Assistant**: Context-aware movie recommendations and intelligent movie discussions
+- **ML Recommendations**: Content-based filtering with weighted features (genre, rating, cast, director, etc.)
 
 ### 🤖 AI Features
 - **AI Movie Reviews**: Generate detailed movie reviews using Google Gemini
-- **AI Chat Assistant**: Context-aware movie recommendations based on your profile
-- **ML Recommendations**: Content-based filtering with weighted features (genre, rating, cast, director, etc.)
+- **Smart Chat Interface**: Floating chat button for instant AI-powered movie suggestions
+- **ML Recommendation Engine**: Content-based filtering with weighted features
 - **6 Mood Presets**: Blockbuster Hits, Hidden Gems, Same Vibe, Classics, Modern Picks, Director's Cut
 
 ### 📱 User Experience
@@ -33,17 +32,12 @@
 - **Skeleton Loaders**: Professional loading states
 - **Prefetching**: Near-instant page navigation
 
-### 🔐 Authentication & Security
-- **Supabase Auth**: Email/password and OAuth providers
-- **Row Level Security**: Database-level access control
-- **Secure API Routes**: Protected endpoints with validation
-- **Session Management**: Real-time auth state updates
-
 ## 🚀 Quick Start
 
 ### Prerequisites
 - Node.js 18+ and npm 9+
-- Supabase account
+- PostgreSQL 14+ database
+- Prisma CLI (`npm install -g prisma`)
 - TMDB API account
 - Google Gemini API key
 
@@ -52,14 +46,20 @@
 ```bash
 # Clone the repository
 git clone https://github.com/yourusername/screenonfire.git
-cd screenonfire/final-main
+cd screenonfire
 
 # Install dependencies
 npm install
 
 # Set up environment variables
-cp .env.example .env.local
-# Edit .env.local with your API keys (see below)
+cp .env.example .env
+# Edit .env with your API keys (see below)
+
+# Set up Prisma and database
+npx prisma generate          # Generate Prisma Client
+npx prisma db push           # Push schema to database
+# OR
+npx prisma migrate dev       # Create and run migrations
 
 # Run development server
 npm run dev
@@ -69,36 +69,56 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ### Environment Variables
 
-Create `.env.local` with the following:
+Create `.env` file in the root directory with the following:
 
 ```env
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-SUPABASE_JWT_SECRET=your_jwt_secret
+# Database
+DATABASE_URL="postgresql://user:password@localhost:5432/screenonfire?schema=public"
 
 # TMDB API
 TMDB_API_KEY=your_tmdb_api_key
 TMDB_ACCESS_TOKEN=your_tmdb_access_token
+NEXT_PUBLIC_TMDB_ACCESS_TOKEN=your_tmdb_access_token
 
 # Google Gemini AI
 GEMINI_API_KEY=your_gemini_api_key
+
+# Node Environment
+NODE_ENV="development"
 ```
 
 **How to get API keys:**
-- **Supabase**: [supabase.com](https://supabase.com) → Create project → Settings → API
+- **PostgreSQL**: Set up local PostgreSQL or use a managed service (Neon, Supabase, Railway, etc.)
 - **TMDB**: [themoviedb.org](https://www.themoviedb.org/) → Settings → API
 - **Gemini**: [ai.google.dev](https://ai.google.dev/) → Get API Key
 
 ### Database Setup
 
-Run these SQL scripts in your Supabase SQL Editor:
+The database schema is managed with Prisma. After setting up your `DATABASE_URL`:
 
-1. `scripts/create-watchlist-table.sql`
-2. `scripts/create-discussions-schema.sql`
-3. `scripts/create-threads-table.sql`
-4. `scripts/create-movie-tables.sql`
+```bash
+# Generate Prisma Client
+npx prisma generate
+
+# Push schema to database (development)
+npx prisma db push
+
+# OR create a migration (recommended for production)
+npx prisma migrate dev --name init
+
+# Open Prisma Studio to view/edit data
+npx prisma studio
+```
+
+**Database Schema Overview:**
+- Movie interactions (likes, dislikes, seen movies, ratings)
+- User reviews and ratings
+- Discussion forums with threaded replies
+- Movie cache for performance optimization
+- User preferences and settings
+- Analytics and tracking (search history, movie views)
+
+See `prisma/schema.prisma` for the complete database schema.
 
 ## 📦 Tech Stack
 
@@ -111,7 +131,8 @@ Run these SQL scripts in your Supabase SQL Editor:
 
 ### Backend
 - **Next.js API Routes**: Serverless functions
-- **Supabase**: PostgreSQL database + Authentication
+- **PostgreSQL**: Robust relational database
+- **Prisma ORM**: Type-safe database client with migrations
 - **TMDB API**: Movie data and images
 - **Google Gemini**: AI-powered features
 
@@ -124,14 +145,14 @@ Run these SQL scripts in your Supabase SQL Editor:
 ## 🎨 Project Structure
 
 ```
-final-main/
+screenonfire/
 ├── app/                      # Next.js app directory
 │   ├── api/                  # API routes
 │   │   ├── chat/            # AI chat assistant
 │   │   ├── ml-recommendations/ # ML recommendation engine
 │   │   ├── movie-review/    # AI movie reviews
-│   │   ├── discussions/     # Discussion forums
-│   │   └── tmdb/            # TMDB proxy
+│   │   ├── tmdb/            # TMDB proxy
+│   │   └── tmdb-image/      # Image optimization
 │   ├── discover/            # Movie discovery page
 │   ├── movies/[id]/         # Movie details page
 │   ├── recommendations/     # AI recommendations page
@@ -141,34 +162,165 @@ final-main/
 │   ├── ui/                  # Shadcn UI components
 │   ├── enhanced-recommender-ui.tsx
 │   ├── floating-chat-button.tsx
+│   ├── cinematic-landing.tsx
 │   └── ...
 ├── lib/                     # Utility functions
 │   ├── tmdb-supabase.ts    # TMDB API client
 │   ├── ml-recommender.ts   # ML recommendation engine
-│   ├── supabase.ts         # Supabase client
+│   ├── prisma.ts           # Prisma client singleton
 │   └── ...
+├── prisma/                  # Database schema and migrations
+│   ├── schema.prisma       # Database schema definition
+│   └── migrations/         # Migration history
 ├── public/                  # Static assets
-└── scripts/                 # Database scripts
+└── scripts/                 # Utility scripts
 ```
 
 ## 🚢 Deployment
 
-### Deploy to Vercel (Recommended)
+### Deploy to VPS with Dokploy
+
+ScreenOnFire is optimized for deployment on your own VPS using **Dokploy**, a self-hosted PaaS alternative to Vercel/Netlify.
+
+#### Prerequisites
+- VPS with Ubuntu 20.04+ (2GB RAM minimum, 4GB recommended)
+- Domain name pointed to your VPS
+- Dokploy installed on your VPS ([Installation Guide](https://dokploy.com/docs/get-started))
+
+#### Deployment Steps
+
+1. **Set up PostgreSQL Database in Dokploy**
+   ```bash
+   # Create a PostgreSQL database service in Dokploy UI
+   # Database name: screenonfire
+   # Note the connection string for environment variables
+   ```
+
+2. **Create Application in Dokploy**
+   - Connect your GitHub repository
+   - Select `Nixpacks` as the build provider
+   - Set the root directory if needed
+
+3. **Configure Environment Variables**
+   ```env
+   # Database
+   DATABASE_URL=postgresql://user:password@postgres:5432/screenonfire?schema=public
+
+   # TMDB API
+   TMDB_API_KEY=your_tmdb_api_key
+   TMDB_ACCESS_TOKEN=your_tmdb_access_token
+   NEXT_PUBLIC_TMDB_ACCESS_TOKEN=your_tmdb_access_token
+
+   # Google Gemini AI
+   GEMINI_API_KEY=your_gemini_api_key
+
+   # Node Environment
+   NODE_ENV=production
+   ```
+
+4. **Configure Build Settings**
+   - Build Provider: `Nixpacks`
+   - Install Command: `npm install`
+   - Build Command: `npm run build && npx prisma generate`
+   - Start Command: `npm start`
+   - Port: `3000`
+
+5. **Set up Database Migrations**
+   ```bash
+   # Add pre-build command in Dokploy
+   npx prisma migrate deploy
+   ```
+
+6. **Configure Domain & SSL**
+   - Add your domain in Dokploy
+   - SSL certificates are automatically managed via Let's Encrypt
+
+7. **Deploy!**
+   - Click "Deploy" in Dokploy
+   - Monitor build logs for any issues
+   - Access your app at your configured domain
+
+#### Nixpacks Configuration
+
+Create `nixpacks.toml` in your project root for custom build configuration:
+
+```toml
+[phases.setup]
+nixPkgs = ["nodejs-18_x", "openssl"]
+
+[phases.install]
+cmds = ["npm install"]
+
+[phases.build]
+cmds = ["npx prisma generate", "npm run build"]
+
+[start]
+cmd = "npm start"
+```
+
+#### Post-Deployment
+
+```bash
+# Run database migrations
+npx prisma migrate deploy
+
+# Seed database (optional)
+npx prisma db seed
+
+# Check application health
+curl https://yourdomain.com/api/health
+```
+
+#### Monitoring & Maintenance
+
+- Monitor application logs in Dokploy dashboard
+- Set up automatic backups for PostgreSQL database
+- Configure log retention and rotation
+- Set up monitoring alerts (optional)
+
+### Alternative: Deploy to Vercel
+
+For serverless deployment, Vercel is still supported:
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/yourusername/screenonfire)
 
-**Detailed deployment guide**: See [DEPLOYMENT.md](./DEPLOYMENT.md)
-
-**Quick deployment checklist**: See [VERCEL_CHECKLIST.md](./VERCEL_CHECKLIST.md)
-
-### Deployment Steps
-
-1. Push your code to GitHub
-2. Import project in Vercel
-3. Add environment variables in Vercel Dashboard
-4. Deploy!
+**Note**: You'll need to use a managed PostgreSQL service (Neon, Supabase, Railway) for Vercel deployments.
 
 **Important**: ML recommendations endpoint requires Vercel Pro for 60s timeout (Free tier: 10s)
+
+## 🗄️ Database Schema
+
+The application uses **Prisma ORM** with **PostgreSQL** for type-safe database operations. Here's an overview of the main models:
+
+### Core Models
+
+**User Management**
+- `User` - User accounts with email, name, avatar
+
+**Movie Interactions**
+- `WatchlistItem` - Movies saved to watch later
+- `MovieLike` / `MovieDislike` - User preferences for recommendations
+- `SeenMovie` - Track watched movies
+- `MovieRating` - Numeric ratings (0-10)
+- `MovieReview` - User-written reviews with helpful votes
+
+**Community Features**
+- `Discussion` - Threaded movie discussions
+- `DiscussionReaction` - Reactions on discussions (like, love, wow, etc.)
+
+**Performance & Analytics**
+- `MovieCache` - Cached TMDB data for faster queries
+- `UserPreference` - Genre preferences, language, theme settings
+- `SearchHistory` - Track search queries
+- `MovieView` - Track movie page views
+
+### Key Features
+- **Cascade Deletes**: Automatic cleanup when users are deleted
+- **Unique Constraints**: Prevent duplicate entries (e.g., user can't like the same movie twice)
+- **Indexes**: Optimized queries on frequently searched fields
+- **Type Safety**: Full TypeScript integration with Prisma Client
+
+View the complete schema: `prisma/schema.prisma`
 
 ## 📈 Performance Optimizations
 
@@ -181,12 +333,15 @@ final-main/
 ✅ Optimized bundle size
 ✅ Cache-Control headers
 ✅ Mobile-first responsive design
+✅ Database query optimization with Prisma
+✅ Connection pooling for PostgreSQL
 
 ### Results
 - Lighthouse Score: 90+
 - First Contentful Paint: <1.5s
 - Time to Interactive: <3s
 - Mobile Performance: Optimized
+- Database Query Time: <100ms (with indexes)
 
 ## 🛠️ Development
 
@@ -198,32 +353,44 @@ npm run build        # Build for production
 npm run start        # Start production server
 npm run lint         # Run ESLint
 npm run type-check   # TypeScript type checking
+
+# Prisma commands
+npx prisma studio    # Open database GUI
+npx prisma generate  # Generate Prisma Client
+npx prisma migrate dev  # Create and apply migrations
+npx prisma db push   # Push schema changes (dev only)
+npx prisma db seed   # Seed database with initial data
 ```
 
 ### Key Files
 - `next.config.mjs` - Next.js configuration
-- `vercel.json` - Vercel deployment settings
+- `prisma/schema.prisma` - Database schema
+- `lib/prisma.ts` - Prisma client singleton
 - `tailwind.config.ts` - Tailwind CSS configuration
 - `tsconfig.json` - TypeScript configuration
+- `nixpacks.toml` - Dokploy build configuration
 
 ## 🎯 Roadmap
 
 ### Upcoming Features
+- [ ] User authentication system
 - [ ] Social features (follow users, shared watchlists)
 - [ ] Advanced filters (by actor, director, production company)
 - [ ] Movie lists (curated collections)
-- [ ] Rating system (star ratings instead of like/dislike)
-- [ ] Email notifications
+- [ ] Email notifications for new releases
 - [ ] Mobile app (React Native)
-- [ ] Multiple language support
-- [ ] Offline mode
-- [ ] Export watchlist
+- [ ] Multiple language support (i18n)
+- [ ] Offline mode with PWA
+- [ ] Export watchlist to CSV/JSON
+- [ ] Movie comparison tool
 
 ### Performance Improvements
 - [ ] Implement React Query for better caching
 - [ ] Add service worker for offline functionality
 - [ ] Optimize ML algorithm for faster recommendations
-- [ ] Implement infinite scroll
+- [ ] Implement infinite scroll on discovery page
+- [ ] Redis caching for API responses
+- [ ] GraphQL API layer
 
 ## 🤝 Contributing
 
@@ -241,15 +408,19 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 🙏 Acknowledgments
 
-- [TMDB](https://www.themoviedb.org/) for movie data and images
-- [Supabase](https://supabase.com/) for backend infrastructure
+- [TMDB](https://www.themoviedb.org/) for comprehensive movie data and images
+- [PostgreSQL](https://www.postgresql.org/) for robust database system
+- [Prisma](https://www.prisma.io/) for excellent ORM and type safety
 - [Google Gemini](https://ai.google.dev/) for AI capabilities
-- [v0.dev](https://v0.dev/) for initial design inspiration
-- [Vercel](https://vercel.com/) for hosting platform
+- [Dokploy](https://dokploy.com/) for self-hosted deployment platform
+- [Next.js](https://nextjs.org/) for the amazing React framework
+- [Shadcn/ui](https://ui.shadcn.com/) for beautiful UI components
+- [Vercel](https://vercel.com/) for serverless hosting option
 
 ## 📞 Support
 
-- **Documentation**: See [DEPLOYMENT.md](./DEPLOYMENT.md) and [CLAUDE.md](./CLAUDE.md)
+- **Documentation**: See [CLAUDE.md](./CLAUDE.md) for development guidelines
+- **Database Schema**: See `prisma/schema.prisma` for complete data model
 - **Issues**: [GitHub Issues](https://github.com/yourusername/screenonfire/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/yourusername/screenonfire/discussions)
 

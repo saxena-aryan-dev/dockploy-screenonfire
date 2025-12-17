@@ -18,6 +18,7 @@ type Movie = {
   posterPath?: string;
   poster_path?: string;
   genres?: string[];
+  genre_ids?: number[];
   genre_names?: string[];
   rating?: number;
   vote_average?: number;
@@ -221,6 +222,7 @@ const EnhancedRecommenderUI: React.FC = () => {
   const [searchResults, setSearchResults] = useState<Movie[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState<string>('');
 
   // Search TMDB
   const searchMovies = useCallback(async (query: string) => {
@@ -241,6 +243,7 @@ const EnhancedRecommenderUI: React.FC = () => {
           posterPath: tmdbMovie.poster_path,
           poster_path: tmdbMovie.poster_path,
           genres: [],
+          genre_ids: tmdbMovie.genre_ids || [],
           rating: tmdbMovie.vote_average,
           vote_average: tmdbMovie.vote_average,
           overview: tmdbMovie.overview,
@@ -289,6 +292,7 @@ const EnhancedRecommenderUI: React.FC = () => {
 
     setIsLoading(true);
     setError(null);
+    setLoadingMessage('Analyzing your movie preferences...');
 
     try {
       const tmdbMovies = selectedMovies.map(movie => ({
@@ -299,10 +303,17 @@ const EnhancedRecommenderUI: React.FC = () => {
         vote_average: movie.vote_average || movie.rating || 0,
         poster_path: movie.poster_path || movie.posterPath || null,
         backdrop_path: null,
-        genre_ids: [],
+        genre_ids: movie.genre_ids || [],
         popularity: movie.popularity || 50,
         original_language: movie.original_language || 'en'
       }));
+
+      // Show progress messages
+      setTimeout(() => setLoadingMessage('Finding similar movies from TMDB...'), 1000);
+      setTimeout(() => setLoadingMessage('Extracting movie features (cast, genres, themes)...'), 3000);
+      setTimeout(() => setLoadingMessage('Calculating similarity scores...'), 5000);
+      setTimeout(() => setLoadingMessage('Applying your custom preferences...'), 7000);
+      setTimeout(() => setLoadingMessage('Selecting diverse recommendations...'), 9000);
 
       const response = await fetch('/api/ml-recommendations', {
         method: 'POST',
@@ -311,7 +322,7 @@ const EnhancedRecommenderUI: React.FC = () => {
           selectedMovies: tmdbMovies,
           weights: weights,
           limit: 24,
-          minScore: 0.15,
+          minScore: 0.08, // Lowered threshold for more diverse recommendations
           candidateSource: 'mixed'
         }),
       });
@@ -320,15 +331,18 @@ const EnhancedRecommenderUI: React.FC = () => {
         throw new Error('Failed to get recommendations');
       }
 
+      setLoadingMessage('Almost done...');
       const data = await response.json();
       setRecommendations(data.recommendations || []);
       setMetadata(data.metadata);
+      setLoadingMessage('');
       window.scrollTo({ top: 0, behavior: 'smooth' });
 
     } catch (error) {
       console.error('Failed:', error);
       setError(error instanceof Error ? error.message : 'Failed to get recommendations');
       setRecommendations([]);
+      setLoadingMessage('');
     } finally {
       setIsLoading(false);
     }
@@ -516,7 +530,7 @@ const EnhancedRecommenderUI: React.FC = () => {
           {isLoading ? (
             <>
               <div className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-              Generating...
+              {loadingMessage || 'Generating...'}
             </>
           ) : (
             <>
@@ -652,6 +666,15 @@ const EnhancedRecommenderUI: React.FC = () => {
                       </p>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {isLoading && loadingMessage && (
+                <div className="mb-6 p-5 bg-gradient-to-r from-blue-900/20 to-purple-900/20 border border-blue-500/30 rounded-2xl">
+                  <p className="text-blue-400 font-medium text-center flex items-center justify-center gap-3">
+                    <div className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                    {loadingMessage}
+                  </p>
                 </div>
               )}
 

@@ -1,0 +1,22 @@
+# Nixpacks configuration for ScreenOnFire
+# Optimized for Dokploy deployment
+
+[phases.setup]
+nixPkgs = ["nodejs_20", "openssl", "postgresql"]
+
+[phases.install]
+cmds = [
+  "npm ci --legacy-peer-deps",
+  "npx prisma generate"
+]
+
+[phases.build]
+cmds = [
+  "npm run build"
+]
+
+[start]
+cmd = "npm run start:prod"
+
+[variables]
+NODE_ENV = "production"

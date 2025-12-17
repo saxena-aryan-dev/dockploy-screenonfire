@@ -1,68 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Play, Sparkles, Heart, LogOut } from "lucide-react"
+import { Play, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { AuthModal } from "@/components/auth-modal"
-import { supabase, type WatchlistItem } from "@/lib/supabase"
 
 export default function SimpleLanding() {
-  const [authUser, setAuthUser] = useState<any | null>(null)
-  const [showAuthModal, setShowAuthModal] = useState(false)
-  const [watchlist, setWatchlist] = useState<WatchlistItem[]>([])
   const router = useRouter()
-
-  useEffect(() => {
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setAuthUser(session?.user ?? null)
-      if (session?.user) {
-        loadUserWatchlist(session.user.id)
-      }
-    })
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setAuthUser(session?.user ?? null)
-      if (session?.user) {
-        loadUserWatchlist(session.user.id)
-      } else {
-        setWatchlist([])
-      }
-    })
-
-    return () => subscription.unsubscribe()
-  }, [])
-
-  const loadUserWatchlist = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("watchlist")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-
-      if (error) {
-        if (error.code === "42P01") {
-          console.warn("The watchlist table is missing – run scripts/create-watchlist-table.sql")
-          return
-        }
-        throw error
-      }
-
-      setWatchlist(data ?? [])
-    } catch (err) {
-      console.error("Error loading watchlist:", err)
-    }
-  }
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-  }
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -92,33 +36,7 @@ export default function SimpleLanding() {
               </div>
               
               <nav className="flex items-center gap-6">
-                {authUser ? (
-                  <div className="flex items-center gap-4">
-                    <Button
-                      variant="ghost"
-                      onClick={() => router.push("/watchlist")}
-                      className="text-gray-300 hover:text-white"
-                    >
-                      Watchlist ({watchlist.length})
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={handleSignOut}
-                      className="text-gray-400 hover:text-white"
-                    >
-                      <LogOut className="h-5 w-5" />
-                    </Button>
-                  </div>
-                ) : (
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowAuthModal(true)}
-                    className="border-gray-700 text-white bg-gray-800/50"
-                  >
-                    Sign In
-                  </Button>
-                )}
+                {/* Navigation items can be added here */}
               </nav>
             </div>
           </div>
@@ -160,18 +78,6 @@ export default function SimpleLanding() {
               <Sparkles className="w-5 h-5 mr-2" />
               AI Recommendations
             </Button>
-            
-            {authUser && (
-              <Button 
-                size="lg"
-                variant="outline"
-                onClick={() => router.push('/watchlist')}
-                className="border-gray-600 text-white hover:bg-gray-800 bg-transparent"
-              >
-                <Heart className="w-5 h-5 mr-2" />
-                My Watchlist ({watchlist.length})
-              </Button>
-            )}
           </div>
 
           {/* Quick stats */}
@@ -191,8 +97,6 @@ export default function SimpleLanding() {
           </div>
         </div>
       </section>
-
-      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} onAuthSuccess={() => {}} />
     </div>
   )
 }

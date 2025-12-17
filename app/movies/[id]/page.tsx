@@ -4,10 +4,6 @@ import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import {
   Play,
-  Plus,
-  Check,
-  ThumbsUp,
-  ThumbsDown,
   Star,
   Clock,
   Calendar,
@@ -15,13 +11,10 @@ import {
   Grid3X3,
   List,
   ExternalLink,
-  MessageCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { supabase } from "@/lib/supabase"
 import {
   getMovieDetails,
   getMovieCredits,
@@ -34,8 +27,7 @@ import {
   type TMDBMovie,
 } from "@/lib/tmdb-supabase"
 import { AiReviewModal } from "@/components/ai-review-modal"
-import { DiscussionModal } from "@/components/discussion-modal"
-import { Bot } from "lucide-react" // Changed Star to Bot for AI review button
+import { Bot } from "lucide-react"
 import { getYear } from "@/lib/date"
 
 interface Cast {
@@ -110,42 +102,14 @@ export default function MovieDetailsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("cast")
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
-  const [authUser, setAuthUser] = useState<any | null>(null)
-  const [isInWatchlist, setIsInWatchlist] = useState(false)
-  const [isSeen, setIsSeen] = useState(false)
-  const [likeStatus, setLikeStatus] = useState<boolean | null>(null)
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false)
   const [aiReview, setAiReview] = useState("")
   const [isReviewLoading, setIsReviewLoading] = useState(false)
-  const [isDiscussionModalOpen, setIsDiscussionModalOpen] = useState(false)
-  const [discussionCount, setDiscussionCount] = useState(0)
 
   useEffect(() => {
     if (movieId) {
       loadMovieData()
-      loadDiscussionCount()
     }
-  }, [movieId])
-
-  useEffect(() => {
-    // Check authentication
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setAuthUser(session?.user ?? null)
-      if (session?.user) {
-        checkUserInteractions(session.user.id)
-      }
-    })
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setAuthUser(session?.user ?? null)
-      if (session?.user) {
-        checkUserInteractions(session.user.id)
-      }
-    })
-
-    return () => subscription.unsubscribe()
   }, [movieId])
 
   const loadMovieData = async () => {
@@ -181,172 +145,6 @@ export default function MovieDetailsPage() {
       console.error("Error loading movie data:", error)
     } finally {
       setIsLoading(false)
-    }
-  }
-
-  const loadDiscussionCount = async () => {
-    try {
-      const response = await fetch(`/api/discussions?movieId=${movieId}`)
-      const data = await response.json()
-      
-      if (data.discussions) {
-        // Count total discussions including replies
-        const countDiscussions = (discussions: any[]): number => {
-          let count = 0
-          discussions.forEach(discussion => {
-            count += 1 // Count the discussion itself
-            if (discussion.replies && discussion.replies.length > 0) {
-              count += countDiscussions(discussion.replies) // Count replies recursively
-            }
-          })
-          return count
-        }
-        
-        setDiscussionCount(countDiscussions(data.discussions))
-      }
-    } catch (error) {
-      console.error("Error loading discussion count:", error)
-    }
-  }
-
-  const checkUserInteractions = async (userId: string) => {
-    try {
-      // Check watchlist
-      const { data: watchlistData } = await supabase
-        .from("watchlist")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("movie_id", movieId)
-        .single()
-
-      setIsInWatchlist(!!watchlistData)
-
-      // Check seen - simplified query
-      const { data: seenData } = await supabase
-        .from("seen")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("movie_id", movieId)
-        .single()
-
-      setIsSeen(!!seenData)
-
-      // Check like status - check both tables
-      const [likeResult, dislikeResult] = await Promise.all([
-        supabase
-          .from("movie_likes")
-          .select("id")
-          .eq("user_id", userId)
-          .eq("movie_id", movieId)
-          .single(),
-        supabase
-          .from("movie_dislikes")
-          .select("id")
-          .eq("user_id", userId)
-          .eq("movie_id", movieId)
-          .single()
-      ])
-
-      if (likeResult.data) {
-        setLikeStatus(true)
-      } else if (dislikeResult.data) {
-        setLikeStatus(false)
-      } else {
-        setLikeStatus(null)
-      }
-    } catch (error) {
-      console.error("Error checking user interactions:", error)
-    }
-  }
-
-  const toggleWatchlist = async () => {
-    if (!authUser || !movie) return
-
-    try {
-      if (isInWatchlist) {
-        await supabase.from("watchlist").delete().eq("user_id", authUser.id).eq("movie_id", movieId)
-        setIsInWatchlist(false)
-      } else {
-        await supabase.from("watchlist").insert({
-          user_id: authUser.id,
-          movie_id: movieId,
-          title: movie.title,
-          poster_url: getImageUrl(movie.poster_path),
-        })
-        setIsInWatchlist(true)
-      }
-    } catch (error) {
-      console.error("Error toggling watchlist:", error)
-    }
-  }
-
-  const toggleSeen = async () => {
-    if (!authUser || !movie) return
-
-    try {
-      if (isSeen) {
-        const { error } = await supabase.from("seen").delete().eq("user_id", authUser.id).eq("movie_id", movieId)
-
-        if (error) throw error
-        setIsSeen(false)
-        console.log("✅ Movie removed from seen list")
-      } else {
-        const { error } = await supabase.from("seen").insert({
-          user_id: authUser.id,
-          movie_id: movieId,
-        })
-
-        if (error) throw error
-        setIsSeen(true)
-        console.log("✅ Movie marked as seen")
-      }
-    } catch (error) {
-      console.error("Error toggling seen:", error)
-      alert("Failed to update seen status. Please try again.")
-    }
-  }
-
-  const handleLike = async (isLike: boolean) => {
-    if (!authUser) return
-
-    try {
-      const newLikeStatus = likeStatus === isLike ? null : isLike
-
-      // First, remove any existing like or dislike
-      await Promise.all([
-        supabase.from("movie_likes").delete().eq("user_id", authUser.id).eq("movie_id", movieId),
-        supabase.from("movie_dislikes").delete().eq("user_id", authUser.id).eq("movie_id", movieId)
-      ])
-
-      if (newLikeStatus !== null) {
-        // Insert into appropriate table
-        if (newLikeStatus) {
-          // Like the movie
-          const { error } = await supabase.from("movie_likes").insert({
-            user_id: authUser.id,
-            movie_id: movieId,
-            liked: true,
-          })
-          if (error) throw error
-          console.log("✅ Movie liked")
-        } else {
-          // Dislike the movie
-          const { error } = await supabase.from("movie_dislikes").insert({
-            user_id: authUser.id,
-            movie_id: movieId,
-            liked: false,
-          })
-          if (error) throw error
-          console.log("✅ Movie disliked")
-        }
-      } else {
-        console.log("✅ Like/dislike removed")
-      }
-
-      setLikeStatus(newLikeStatus)
-    } catch (error) {
-      console.error("Error handling like:", error)
-      alert("Failed to update like status. Please try again.")
     }
   }
 
@@ -598,94 +396,6 @@ export default function MovieDetailsPage() {
                     <span className="sm:hidden">AI</span>
                   </div>
                 </button>
-
-                <button
-                  onClick={() => setIsDiscussionModalOpen(true)}
-                  className="group relative px-4 sm:px-6 lg:px-8 py-2 sm:py-3 lg:py-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold text-sm sm:text-base lg:text-lg rounded-xl shadow-2xl hover:shadow-blue-500/20 transform hover:scale-105 transition-all duration-300 border border-blue-400/20"
-                  suppressHydrationWarning
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  <div className="relative flex items-center gap-2">
-                    <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6" />
-                    <span>Discuss</span>
-                    {discussionCount > 0 && (
-                      <span className="bg-white/20 rounded-full px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs sm:text-sm">
-                        {discussionCount}
-                      </span>
-                    )}
-                  </div>
-                </button>
-
-                <button
-                  onClick={toggleWatchlist}
-                  className={`group relative px-4 sm:px-6 lg:px-8 py-2 sm:py-3 lg:py-4 font-bold text-sm sm:text-base lg:text-lg rounded-xl shadow-xl transform hover:scale-105 transition-all duration-300 border ${
-                    isInWatchlist
-                      ? "bg-gradient-to-r from-yellow-400 to-yellow-500 text-black border-yellow-400/50 shadow-yellow-400/20"
-                      : "bg-black/40 backdrop-blur-sm text-white border-white/30 hover:bg-black/60 hover:border-white/50"
-                  }`}
-                  suppressHydrationWarning
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  <div className="relative flex items-center gap-2">
-                    {isInWatchlist ? (
-                      <>
-                        <Check className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6" />
-                        <span className="hidden sm:inline">In Watchlist</span>
-                        <span className="sm:hidden">Added</span>
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6" />
-                        <span className="hidden lg:inline">Add to Watchlist</span>
-                        <span className="lg:hidden">Watchlist</span>
-                      </>
-                    )}
-                  </div>
-                </button>
-
-                <button
-                  onClick={toggleSeen}
-                  className={`group relative px-4 sm:px-6 lg:px-8 py-2 sm:py-3 lg:py-4 font-bold text-sm sm:text-base lg:text-lg rounded-xl shadow-xl transform hover:scale-105 transition-all duration-300 border ${
-                    isSeen
-                      ? "bg-gradient-to-r from-emerald-400 to-emerald-500 text-black border-emerald-400/50 shadow-emerald-400/20"
-                      : "bg-black/40 backdrop-blur-sm text-white border-white/30 hover:bg-black/60 hover:border-white/50"
-                  }`}
-                  suppressHydrationWarning
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  <div className="relative flex items-center gap-2">
-                    <Check className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6" />
-                    <span>{isSeen ? "Seen" : "Mark Seen"}</span>
-                  </div>
-                </button>
-
-                <div className="flex gap-2 sm:gap-3">
-                  <button
-                    onClick={() => handleLike(true)}
-                    className={`group relative p-2 sm:p-3 lg:p-4 rounded-xl shadow-xl transform hover:scale-105 transition-all duration-300 border ${
-                      likeStatus === true
-                        ? "bg-gradient-to-r from-emerald-400 to-emerald-500 text-black border-emerald-400/50 shadow-emerald-400/20"
-                        : "bg-black/40 backdrop-blur-sm text-white border-white/30 hover:bg-black/60 hover:border-white/50"
-                    }`}
-                    suppressHydrationWarning
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    <ThumbsUp className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 relative z-10" />
-                  </button>
-
-                  <button
-                    onClick={() => handleLike(false)}
-                    className={`group relative p-2 sm:p-3 lg:p-4 rounded-xl shadow-xl transform hover:scale-105 transition-all duration-300 border ${
-                      likeStatus === false
-                        ? "bg-gradient-to-r from-red-400 to-red-500 text-black border-red-400/50 shadow-red-400/20"
-                        : "bg-black/40 backdrop-blur-sm text-white border-white/30 hover:bg-black/60 hover:border-white/50"
-                    }`}
-                    suppressHydrationWarning
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    <ThumbsDown className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 relative z-10" />
-                  </button>
-                </div>
               </div>
             </div>
           </div>
@@ -1073,16 +783,6 @@ export default function MovieDetailsPage() {
         review={aiReview}
         isLoading={isReviewLoading}
         movieTitle={movie.title}
-      />
-      <DiscussionModal
-        isOpen={isDiscussionModalOpen}
-        onClose={() => {
-          setIsDiscussionModalOpen(false)
-          loadDiscussionCount() // Refresh count when modal closes
-        }}
-        movieId={movieId}
-        movieTitle={movie.title}
-        userId={authUser?.id}
       />
     </div>
   )

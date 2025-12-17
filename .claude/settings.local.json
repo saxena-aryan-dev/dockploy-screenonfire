@@ -3,27 +3,30 @@
     "allow": [
       "Bash(pnpm install:*)",
       "Bash(npm install)",
-<<<<<<< HEAD
+      "Bash(npm install:*)",
       "Bash(npm run test-recommendations:*)",
       "Bash(npm run dev:*)",
-      "Bash(rm:*)",
-      "Bash(npm cache clean:*)",
+      "Bash(npm run build:*)",
       "Bash(npm run ingest-vector-movies:*)",
-      "Bash(npx tsx:*)"
+      "Bash(npm cache clean:*)",
+      "Bash(npm audit:*)",
+      "Bash(npx tsx:*)",
+      "Bash(rm:*)",
+      "Bash(mv:*)",
+      "Bash(curl:*)",
+      "Bash(git add:*)",
+      "Bash(git pull:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(npm run lint:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git restore:*)",
+      "Bash(test:*)",
+      "Bash(npx prisma generate)",
+      "Bash(npm uninstall:*)",
+      "Bash(git remote:*)",
+      "Bash(git remote add:*)"
     ],
     "deny": [],
     "ask": []
-=======
-      "Bash(mv:*)",
-      "Bash(npm run build:*)",
-      "Bash(npm run dev:*)",
-      "Bash(npm audit:*)",
-      "Bash(npm install:*)",
-      "Bash(curl:*)",
-      "Bash(git add:*)",
-      "Bash(git pull:*)"
-    ],
-    "deny": []
->>>>>>> cc79e1ede6332803b1f23a532f640a94fbc3a79a
   }
 }
