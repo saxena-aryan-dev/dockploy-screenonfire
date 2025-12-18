@@ -12,6 +12,7 @@ cmds = [
 
 [phases.build]
 cmds = [
+  "npx prisma migrate deploy",
   "npm run build"
 ]
 

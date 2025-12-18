@@ -2,7 +2,7 @@
 
 import { memo, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { Star, Heart } from "lucide-react"
+import { Star, Heart, ThumbsUp, ThumbsDown, Bookmark } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { OptimizedImage } from "@/components/optimized-image"
@@ -11,27 +11,49 @@ import { getYear } from "@/lib/date"
 
 interface MovieCardProps {
   movie: TMDBMovie
-  isInWatchlist: boolean
-  onAddToWatchlist: (movie: TMDBMovie) => void
-  onRemoveFromWatchlist: (movieId: string) => void
+  isInWatchlist?: boolean
+  isLiked?: boolean
+  isDisliked?: boolean
+  onAddToWatchlist?: (movie: TMDBMovie) => void
+  onRemoveFromWatchlist?: (movieId: string) => void
+  onLike?: (movie: TMDBMovie) => void
+  onDislike?: (movie: TMDBMovie) => void
 }
 
 const MovieCard = memo(function MovieCard({
   movie,
-  isInWatchlist,
+  isInWatchlist = false,
+  isLiked = false,
+  isDisliked = false,
   onAddToWatchlist,
-  onRemoveFromWatchlist
+  onRemoveFromWatchlist,
+  onLike,
+  onDislike
 }: MovieCardProps) {
   const router = useRouter()
 
   const handleWatchlistToggle = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
-    if (isInWatchlist) {
+    if (isInWatchlist && onRemoveFromWatchlist) {
       onRemoveFromWatchlist(movie.id.toString())
-    } else {
+    } else if (!isInWatchlist && onAddToWatchlist) {
       onAddToWatchlist(movie)
     }
   }, [isInWatchlist, onRemoveFromWatchlist, onAddToWatchlist, movie])
+
+  const handleLike = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (onLike) {
+      onLike(movie)
+    }
+  }, [onLike, movie])
+
+  const handleDislike = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (onDislike) {
+      onDislike(movie)
+    }
+  }, [onDislike, movie])
 
   const handleMovieClick = useCallback(() => {
     router.push(`/movies/${movie.id}`)
@@ -68,7 +90,7 @@ const MovieCard = memo(function MovieCard({
           </div>
         </div>
 
-        {/* Watchlist Heart Button */}
+        {/* Watchlist Bookmark Button */}
         <Button
           size="icon"
           variant="ghost"
@@ -78,16 +100,62 @@ const MovieCard = memo(function MovieCard({
               ? "bg-yellow-500 hover:bg-yellow-400 text-black scale-110"
               : "bg-black/80 hover:bg-black text-white backdrop-blur-md border-2 border-gray-700 hover:border-yellow-500"
           }`}
+          title={isInWatchlist ? "Remove from Watchlist" : "Add to Watchlist"}
         >
-          <Heart
+          <Bookmark
             className={`h-4 w-4 transition-all duration-300 ${
               isInWatchlist ? "fill-current scale-110" : ""
             }`}
           />
         </Button>
 
-        {/* Hover Action Overlay */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        {/* Action Buttons Overlay - Shows on hover */}
+        <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black via-black/95 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-4 group-hover:translate-y-0 z-10">
+          <div className="flex items-center justify-center gap-2">
+            {/* Like Button */}
+            {onLike && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleLike}
+                className={`flex-1 h-8 rounded-lg transition-all duration-300 ${
+                  isLiked
+                    ? "bg-green-500 hover:bg-green-400 text-black"
+                    : "bg-white/10 hover:bg-white/20 text-white border border-white/20"
+                }`}
+                title={isLiked ? "Unlike" : "Like"}
+              >
+                <ThumbsUp
+                  className={`h-3.5 w-3.5 mr-1 ${isLiked ? "fill-current" : ""}`}
+                />
+                <span className="text-xs font-semibold">Like</span>
+              </Button>
+            )}
+
+            {/* Dislike Button */}
+            {onDislike && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleDislike}
+                className={`flex-1 h-8 rounded-lg transition-all duration-300 ${
+                  isDisliked
+                    ? "bg-red-500 hover:bg-red-400 text-black"
+                    : "bg-white/10 hover:bg-white/20 text-white border border-white/20"
+                }`}
+                title={isDisliked ? "Remove Dislike" : "Dislike"}
+              >
+                <ThumbsDown
+                  className={`h-3.5 w-3.5 mr-1 ${isDisliked ? "fill-current" : ""}`}
+                />
+                <span className="text-xs font-semibold">Dislike</span>
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* View Details Overlay */}
+        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
           <div className="bg-yellow-500 text-black px-6 py-2 rounded-full font-bold text-sm shadow-xl transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
             View Details
           </div>

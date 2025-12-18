@@ -11,6 +11,8 @@ import {
   Grid3X3,
   List,
   ExternalLink,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -29,6 +31,7 @@ import {
 import { AiReviewModal } from "@/components/ai-review-modal"
 import { Bot } from "lucide-react"
 import { getYear } from "@/lib/date"
+import { useMovieActions } from "@/hooks/useMovieActions"
 
 interface Cast {
   id: number
@@ -105,6 +108,14 @@ export default function MovieDetailsPage() {
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false)
   const [aiReview, setAiReview] = useState("")
   const [isReviewLoading, setIsReviewLoading] = useState(false)
+
+  // Movie actions hook (using default user for now)
+  const movieActions = useMovieActions({
+    userId: 'default-user',
+    initialWatchlist: [],
+    initialLikes: [],
+    initialDislikes: []
+  })
 
   useEffect(() => {
     if (movieId) {
@@ -394,6 +405,40 @@ export default function MovieDetailsPage() {
                     <Bot className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6" />
                     <span className="hidden sm:inline">AI Review</span>
                     <span className="sm:hidden">AI</span>
+                  </div>
+                </button>
+
+                {/* Like Button */}
+                <button
+                  onClick={() => movie && movieActions.likeMovie(movie as unknown as TMDBMovie)}
+                  className={`group relative px-4 sm:px-6 lg:px-8 py-2 sm:py-3 lg:py-4 font-bold text-sm sm:text-base lg:text-lg rounded-xl shadow-2xl transform hover:scale-105 transition-all duration-300 border ${
+                    movieActions.isLiked(Number(movieId))
+                      ? 'bg-gradient-to-r from-green-500 to-green-600 text-white border-green-400/30 hover:shadow-green-500/20'
+                      : 'bg-gradient-to-r from-gray-800 to-gray-900 text-white border-gray-700/50 hover:shadow-gray-500/20'
+                  }`}
+                  suppressHydrationWarning
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="relative flex items-center gap-2">
+                    <ThumbsUp className={`h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 ${movieActions.isLiked(Number(movieId)) ? 'fill-current' : ''}`} />
+                    <span className="hidden sm:inline">Like</span>
+                  </div>
+                </button>
+
+                {/* Dislike Button */}
+                <button
+                  onClick={() => movie && movieActions.dislikeMovie(movie as unknown as TMDBMovie)}
+                  className={`group relative px-4 sm:px-6 lg:px-8 py-2 sm:py-3 lg:py-4 font-bold text-sm sm:text-base lg:text-lg rounded-xl shadow-2xl transform hover:scale-105 transition-all duration-300 border ${
+                    movieActions.isDisliked(Number(movieId))
+                      ? 'bg-gradient-to-r from-red-500 to-red-600 text-white border-red-400/30 hover:shadow-red-500/20'
+                      : 'bg-gradient-to-r from-gray-800 to-gray-900 text-white border-gray-700/50 hover:shadow-gray-500/20'
+                  }`}
+                  suppressHydrationWarning
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="relative flex items-center gap-2">
+                    <ThumbsDown className={`h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 ${movieActions.isDisliked(Number(movieId)) ? 'fill-current' : ''}`} />
+                    <span className="hidden sm:inline">Dislike</span>
                   </div>
                 </button>
               </div>

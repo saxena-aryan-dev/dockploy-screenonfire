@@ -18,6 +18,12 @@ dist/
 .env.test.local
 .env.production.local
 
+# SQLite database (local development)
+*.db
+*.db-journal
+prisma/*.db
+prisma/*.db-journal
+
 # Vercel
 .vercel
 

@@ -13,6 +13,7 @@ import MovieGrid from "@/components/movie-grid"
 import { OptimizedImage } from "@/components/optimized-image"
 import { ultraFastImageLoader } from "@/lib/ultra-fast-image"
 import { PopularMoviesCarousel } from "@/components/popular-movies-carousel"
+import { useMovieActions } from "@/hooks/useMovieActions"
 import {
   getGenres,
   searchMovies,
@@ -46,6 +47,24 @@ export default function MovieRecommender() {
   const [showFilters, setShowFilters] = useState(false)
   const router = useRouter()
   const [watchedMovies, setWatchedMovies] = useState<Set<string>>(new Set())
+
+  // Use temporary userId (replace with actual auth later)
+  const userId = "demo-user-" + (typeof window !== 'undefined' ? (localStorage.getItem('tempUserId') || (() => {
+    const id = 'user-' + Date.now()
+    localStorage.setItem('tempUserId', id)
+    return id
+  })()) : 'server')
+
+  // Movie actions hook for like/dislike/watchlist
+  const {
+    isInWatchlist,
+    isLiked,
+    isDisliked,
+    addToWatchlist,
+    removeFromWatchlist,
+    likeMovie,
+    dislikeMovie
+  } = useMovieActions({ userId })
 
   // Load genres on mount
   useEffect(() => {
@@ -773,6 +792,13 @@ export default function MovieRecommender() {
         <MovieGrid
           movies={movies}
           isLoading={isLoading}
+          isInWatchlist={(movieId) => isInWatchlist(parseInt(movieId))}
+          onAddToWatchlist={addToWatchlist}
+          onRemoveFromWatchlist={removeFromWatchlist}
+          isLiked={isLiked}
+          isDisliked={isDisliked}
+          onLike={likeMovie}
+          onDislike={dislikeMovie}
           onLoadMovies={loadPopularMovies}
         />
 
