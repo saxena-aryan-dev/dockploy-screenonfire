@@ -29,7 +29,8 @@
       "Bash(git push:*)",
       "Bash(npx prisma migrate:*)",
       "Bash(findstr:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(chmod:*)"
     ],
     "deny": [],
     "ask": []

@@ -12,7 +12,6 @@ cmds = [
 
 [phases.build]
 cmds = [
-  "npx prisma db push --accept-data-loss",
   "npm run build"
 ]
 
