@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -118,7 +118,7 @@ model MovieReview {
   userId      String
   movieId     Int
   movieTitle  String
-  content     String
+  content     String   @db.Text
   rating      Float?   // Optional rating with review
   helpful     Int      @default(0)
   createdAt   DateTime @default(now())
@@ -139,7 +139,7 @@ model Discussion {
   id          String   @id @default(uuid())
   movieId     Int
   userId      String
-  content     String
+  content     String   @db.Text
   parentId    String?  // For threaded replies
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -178,7 +178,7 @@ model MovieCache {
   id              Int      @id // TMDB movie ID
   title           String
   originalTitle   String?
-  overview        String?
+  overview        String?  @db.Text
   releaseDate     DateTime?
   runtime         Int?
   voteAverage     Float?
@@ -188,7 +188,7 @@ model MovieCache {
   backdropPath    String?
   adult           Boolean  @default(false)
   originalLanguage String?
-  genres          String   // JSON string of genre IDs
+  genres          String[] // Array of genre IDs
 
   // Cached data
   lastUpdated     DateTime @default(now())
@@ -206,8 +206,8 @@ model MovieCache {
 model UserPreference {
   id                  String   @id @default(uuid())
   userId              String   @unique
-  favoriteGenres      String   @default("[]") // JSON array of TMDB genre IDs
-  preferredLanguages  String   @default("[]") // JSON array e.g., ['en', 'hi', 'es']
+  favoriteGenres      Int[]    // Array of TMDB genre IDs
+  preferredLanguages  String[] // e.g., ['en', 'hi', 'es']
   emailNotifications  Boolean  @default(true)
   theme               String   @default("dark") // 'dark' or 'light'
   createdAt           DateTime @default(now())

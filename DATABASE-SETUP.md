@@ -2,61 +2,85 @@
 
 ## Current Configuration
 
-The project is now set up to work with **SQLite for local development** and **PostgreSQL for production deployment**.
+The project uses **PostgreSQL for both local and production**. The schema is now optimized for PostgreSQL with automatic deployment setup.
 
-## Local Development (SQLite)
+## Local Development
 
-### Current Setup
-- ✅ Database: SQLite (`dev.db`)
-- ✅ Location: `prisma/dev.db`
-- ✅ No installation required
-- ✅ Default user created: `default-user`
+### Setup Local Database
 
-### Running the App
-```bash
-npm run dev
-```
-
-The app will now work with all features:
-- ✅ Movie browsing (TMDB API)
-- ✅ Like/Dislike buttons (saved to SQLite)
-- ✅ Watchlist (saved to SQLite)
-- ✅ AI Review (Google Gemini)
-
-## Production Deployment (PostgreSQL)
-
-### Before Deploying to Dokploy:
-
-1. **Update `.env` on your VPS** to use PostgreSQL:
-```env
-DATABASE_URL="postgresql://postgres:t0svjsxjq9qoaurr@screenonfire-screenonfire-database-qoeize:5432/postgres?sslmode=require"
-```
-
-2. **Update `prisma/schema.prisma`** on the server:
+**Option 1: Use SQLite (Simpler for local dev)**
+1. Update `prisma/schema.prisma`:
 ```prisma
 datasource db {
-  provider = "postgresql"  // Change from "sqlite"
+  provider = "sqlite"  // Change from "postgresql"
   url      = env("DATABASE_URL")
 }
 ```
 
-3. **Update array fields back to PostgreSQL format:**
-- `UserPreference.favoriteGenres`: `String` → `Int[]`
-- `UserPreference.preferredLanguages`: `String` → `String[]`
-- `MovieCache.genres`: `String` → `String[]`
-
-4. **Add `@db.Text` back to text fields:**
-- `MovieReview.content`: `String` → `String @db.Text`
-- `Discussion.content`: `String` → `String @db.Text`
-- `MovieCache.overview`: `String?` → `String? @db.Text`
-
-5. **Run migrations on the server:**
-```bash
-npx prisma migrate deploy
+2. Update `.env`:
+```env
+DATABASE_URL="file:./dev.db"
 ```
 
-6. **Create default user on production:**
+3. Run setup:
 ```bash
+npx prisma db push
+npx tsx scripts/seed-default-user.ts
+npm run dev
+```
+
+**Option 2: Use PostgreSQL locally**
+1. Install PostgreSQL on your machine
+2. Update `.env`:
+```env
+DATABASE_URL="postgresql://postgres:password@localhost:5432/screenonfire"
+```
+
+3. Run setup:
+```bash
+npx prisma db push
+npx tsx scripts/seed-default-user.ts
+npm run dev
+```
+
+The app will work with all features:
+- ✅ Movie browsing (TMDB API)
+- ✅ Like/Dislike buttons (saved to database)
+- ✅ Watchlist (saved to database)
+- ✅ AI Review (Google Gemini)
+
+## Production Deployment (Dokploy)
+
+### Automatic Setup (Recommended)
+
+The deployment is now **fully automated**! Just push to GitHub and Dokploy will:
+1. ✅ Build the Docker image
+2. ✅ Generate Prisma Client
+3. ✅ Create database schema automatically
+4. ✅ Deploy the app
+
+### Environment Variables in Dokploy
+
+Make sure these environment variables are set in Dokploy:
+
+```env
+DATABASE_URL="postgresql://postgres:t0svjsxjq9qoaurr@screenonfire-screenonfire-database-qoeize:5432/postgres?sslmode=require"
+
+GEMINI_API_KEY="your-gemini-api-key"
+TMDB_API_KEY="your-tmdb-api-key"
+TMDB_ACCESS_TOKEN="your-tmdb-access-token"
+```
+
+### Manual Database Setup (if needed)
+
+If you need to manually set up the database:
+
+```bash
+# Connect to your Dokploy container
+dokploy exec <container-id> /bin/bash
+
+# Run database setup
+npx prisma db push
 npx tsx scripts/seed-default-user.ts
 ```
 

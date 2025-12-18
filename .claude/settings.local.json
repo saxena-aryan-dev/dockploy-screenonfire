@@ -24,7 +24,12 @@
       "Bash(npx prisma generate)",
       "Bash(npm uninstall:*)",
       "Bash(git remote:*)",
-      "Bash(git remote add:*)"
+      "Bash(git remote add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nMigrate from Supabase to PostgreSQL with Prisma for VPS deployment\n\nMajor Changes:\n✅ Removed all Supabase dependencies and authentication\n✅ Integrated PostgreSQL with Prisma ORM\n✅ Configured for Dokploy VPS deployment with Nixpacks\n✅ Created comprehensive database schema with 13+ models\n✅ Updated all API routes to work without authentication\n\nDatabase:\n- Added Prisma schema (User, WatchlistItem, MovieLike, Reviews, Discussions, etc.)\n- Created Prisma client singleton for connection pooling\n- Configured PostgreSQL migrations\n\nDeployment:\n- Added nixpacks.toml for Dokploy build configuration\n- Updated package.json scripts for Prisma integration\n- Configured production build with automatic migrations\n\nDocumentation:\n- Updated README.md for PostgreSQL/Prisma/Dokploy stack\n- Created docs/DATABASE.md with complete schema documentation\n- Created docs/DEPLOYMENT.md with step-by-step VPS deployment guide\n\nFeatures Removed:\n- Supabase authentication (can be re-added later)\n- User-specific watchlists (database schema exists, UI removed)\n- Discussion forums (database schema exists, UI removed)\n\nFeatures Retained:\n- Movie discovery and search\n- AI-powered recommendations (Gemini)\n- ML-based movie suggestions\n- Movie details with cast/crew/trailers\n- TMDB API integration with proxy and fallbacks\n\nBuild Status: ✅ Production build successful\nReady for: Dokploy VPS deployment with PostgreSQL\n\n🚀 Generated with Claude Code\nEOF\n)\")",
+      "Bash(git push:*)",
+      "Bash(npx prisma migrate:*)",
+      "Bash(findstr:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
