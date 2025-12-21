@@ -17,6 +17,11 @@ import { OptimizedImage } from "@/components/optimized-image"
 import MovieGrid from "@/components/movie-grid"
 import { PopularMoviesCarousel } from "@/components/popular-movies-carousel"
 import { useScrollY } from "@/hooks/useScrollAnimation"
+import { useSession } from "@/components/providers/auth-provider"
+import { UserMenu } from "@/components/user-menu"
+import { AuthButtons } from "@/components/auth-buttons"
+import { AuthModal } from "@/components/auth/auth-modal"
+import { useMovieActions } from "@/hooks/useMovieActions"
 import {
   getGenres,
   searchMovies,
@@ -50,9 +55,30 @@ export default function CinematicLanding() {
   const [featuredMovie, setFeaturedMovie] = useState<TMDBMovie | null>(null)
   const [contentType, setContentType] = useState<"movies" | "series">("movies")
   const [sortType, setSortType] = useState<"popular" | "trending" | "top-rated" | "indian">("popular")
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [authModalTab, setAuthModalTab] = useState<"login" | "signup">("login")
 
   const router = useRouter()
   const scrollY = useScrollY()
+
+  // Auth session
+  const { data: session } = useSession()
+
+  // Movie actions hook for like/dislike/watchlist
+  const {
+    isInWatchlist,
+    isLiked,
+    isDisliked,
+    addToWatchlist,
+    removeFromWatchlist,
+    likeMovie,
+    dislikeMovie
+  } = useMovieActions({
+    onAuthRequired: () => {
+      setAuthModalTab("login")
+      setShowAuthModal(true)
+    }
+  })
 
   // Scroll-based animation values - use stable default for SSR
   const [heroHeight, setHeroHeight] = useState(1000)
@@ -290,19 +316,6 @@ export default function CinematicLanding() {
     }
   }
 
-  const addToWatchlist = useCallback(async (movie: TMDBMovie) => {
-    // Watchlist functionality removed - authentication required
-    console.log("Watchlist feature requires authentication")
-  }, [])
-
-  const removeFromWatchlist = useCallback(async (movieId: string) => {
-    // Watchlist functionality removed
-  }, [])
-
-  const isInWatchlist = useCallback((movieId: string) => {
-    return false
-  }, [])
-
   const handleMarkAsWatched = useCallback((movieId: string) => {
     setWatchedMovies((prev) => {
       const newSet = new Set(prev)
@@ -435,7 +448,7 @@ export default function CinematicLanding() {
             </nav>
 
             {/* Right Side Actions */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 md:gap-4">
               {/* Search - Hidden on mobile */}
               <div className="relative hidden md:block">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -447,6 +460,22 @@ export default function CinematicLanding() {
                   className="pl-10 w-48 lg:w-64 bg-gray-900 border-gray-700 text-white placeholder-gray-400 focus:border-yellow-500"
                 />
               </div>
+
+              {/* Auth UI */}
+              {session?.user ? (
+                <UserMenu user={session.user} />
+              ) : (
+                <AuthButtons
+                  onLoginClick={() => {
+                    setAuthModalTab("login")
+                    setShowAuthModal(true)
+                  }}
+                  onSignupClick={() => {
+                    setAuthModalTab("signup")
+                    setShowAuthModal(true)
+                  }}
+                />
+              )}
             </div>
           </div>
 
@@ -1072,6 +1101,13 @@ export default function CinematicLanding() {
           </div>
         </div>
       </motion.section>
+
+      {/* Auth Modal */}
+      <AuthModal
+        open={showAuthModal}
+        onOpenChange={setShowAuthModal}
+        defaultTab={authModalTab}
+      />
     </div>
   )
 }

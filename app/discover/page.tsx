@@ -14,6 +14,10 @@ import { OptimizedImage } from "@/components/optimized-image"
 import { ultraFastImageLoader } from "@/lib/ultra-fast-image"
 import { PopularMoviesCarousel } from "@/components/popular-movies-carousel"
 import { useMovieActions } from "@/hooks/useMovieActions"
+import { useSession } from "@/components/providers/auth-provider"
+import { UserMenu } from "@/components/user-menu"
+import { AuthButtons } from "@/components/auth-buttons"
+import { AuthModal } from "@/components/auth/auth-modal"
 import {
   getGenres,
   searchMovies,
@@ -47,13 +51,11 @@ export default function MovieRecommender() {
   const [showFilters, setShowFilters] = useState(false)
   const router = useRouter()
   const [watchedMovies, setWatchedMovies] = useState<Set<string>>(new Set())
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [authModalTab, setAuthModalTab] = useState<"login" | "signup">("login")
 
-  // Use temporary userId (replace with actual auth later)
-  const userId = "demo-user-" + (typeof window !== 'undefined' ? (localStorage.getItem('tempUserId') || (() => {
-    const id = 'user-' + Date.now()
-    localStorage.setItem('tempUserId', id)
-    return id
-  })()) : 'server')
+  // Auth session
+  const { data: session } = useSession()
 
   // Movie actions hook for like/dislike/watchlist
   const {
@@ -64,7 +66,12 @@ export default function MovieRecommender() {
     removeFromWatchlist,
     likeMovie,
     dislikeMovie
-  } = useMovieActions({ userId })
+  } = useMovieActions({
+    onAuthRequired: () => {
+      setAuthModalTab("login")
+      setShowAuthModal(true)
+    }
+  })
 
   // Load genres on mount
   useEffect(() => {
@@ -444,7 +451,7 @@ export default function MovieRecommender() {
             </nav>
 
             {/* Right Side Actions */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 md:gap-4">
               {/* Search - Hidden on mobile, shown in filters */}
               <div className="relative hidden md:block">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -456,6 +463,22 @@ export default function MovieRecommender() {
                   className="pl-10 w-48 lg:w-80 bg-gray-900 border-gray-700 text-white placeholder-gray-400 focus:border-yellow-500"
                 />
               </div>
+
+              {/* Auth UI */}
+              {session?.user ? (
+                <UserMenu user={session.user} />
+              ) : (
+                <AuthButtons
+                  onLoginClick={() => {
+                    setAuthModalTab("login")
+                    setShowAuthModal(true)
+                  }}
+                  onSignupClick={() => {
+                    setAuthModalTab("signup")
+                    setShowAuthModal(true)
+                  }}
+                />
+              )}
             </div>
           </div>
 
@@ -874,6 +897,13 @@ export default function MovieRecommender() {
           </div>
         )}
       </div>
+
+      {/* Auth Modal */}
+      <AuthModal
+        open={showAuthModal}
+        onOpenChange={setShowAuthModal}
+        defaultTab={authModalTab}
+      />
     </div>
   )
 }
