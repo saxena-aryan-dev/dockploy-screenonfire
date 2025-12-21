@@ -5,6 +5,7 @@ import "./globals.css"
 import { FloatingChatButton } from "@/components/floating-chat-button"
 import PerformanceMonitor from "@/components/performance-monitor"
 import ServiceWorkerInitializer from "@/components/service-worker-initializer"
+import { AuthProvider } from "@/components/providers/auth-provider"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -35,10 +36,12 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning>
-        <ServiceWorkerInitializer />
-        <PerformanceMonitor />
-        {children}
-        <FloatingChatButton />
+        <AuthProvider>
+          <ServiceWorkerInitializer />
+          <PerformanceMonitor />
+          {children}
+          <FloatingChatButton />
+        </AuthProvider>
       </body>
     </html>
   )
