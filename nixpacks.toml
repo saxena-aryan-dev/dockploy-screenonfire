@@ -10,9 +10,12 @@ cmds = [
   "npx prisma generate"
 ]
 
+# Copy static files and public folder for standalone mode
 [phases.build]
 cmds = [
-  "npm run build"
+  "npm run build",
+  "cp -r public .next/standalone/",
+  "cp -r .next/static .next/standalone/.next/"
 ]
 
 [start]

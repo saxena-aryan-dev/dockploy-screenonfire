@@ -30,4 +30,7 @@ npx tsx scripts/seed-default-user.ts 2>/dev/null || echo "⚠️  Default user c
 
 # Start Next.js server
 echo "🌟 Starting Next.js server..."
-npm run start
+# Use standalone server (required for output: 'standalone' in next.config.mjs)
+# Bind to 0.0.0.0 (not localhost) to accept external connections in Docker
+cd .next/standalone
+HOSTNAME=0.0.0.0 PORT=3000 node server.js
