@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useCallback, useEffect } from 'react'
+import { useSession } from 'next-auth/react'
 import { TMDBMovie } from '@/lib/tmdb-supabase'
 
 interface UseMovieActionsProps {
-  userId: string
+  onAuthRequired?: () => void
   initialWatchlist?: number[]
   initialLikes?: number[]
   initialDislikes?: number[]
@@ -18,11 +19,14 @@ interface MovieActionState {
 }
 
 export function useMovieActions({
-  userId,
+  onAuthRequired,
   initialWatchlist = [],
   initialLikes = [],
   initialDislikes = []
-}: UseMovieActionsProps) {
+}: UseMovieActionsProps = {}) {
+  const { data: session } = useSession()
+  const userId = session?.user?.id
+
   const [state, setState] = useState<MovieActionState>({
     watchlist: new Set(initialWatchlist),
     likes: new Set(initialLikes),
@@ -37,8 +41,8 @@ export function useMovieActions({
     const loadUserData = async () => {
       try {
         const [watchlistRes, likesRes] = await Promise.all([
-          fetch(`/api/watchlist?userId=${userId}`),
-          fetch(`/api/likes?userId=${userId}`)
+          fetch(`/api/watchlist`),
+          fetch(`/api/likes`)
         ])
 
         if (watchlistRes.ok) {
@@ -66,7 +70,10 @@ export function useMovieActions({
   }, [userId])
 
   const addToWatchlist = useCallback(async (movie: TMDBMovie) => {
-    if (!userId) return
+    if (!userId) {
+      onAuthRequired?.()
+      return
+    }
 
     const movieId = movie.id
 
@@ -82,7 +89,6 @@ export function useMovieActions({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId,
           movieId,
           movieTitle: movie.title,
           posterUrl: movie.poster_path
@@ -114,10 +120,13 @@ export function useMovieActions({
         return { ...prev, loading: newLoading }
       })
     }
-  }, [userId])
+  }, [userId, onAuthRequired])
 
   const removeFromWatchlist = useCallback(async (movieIdStr: string) => {
-    if (!userId) return
+    if (!userId) {
+      onAuthRequired?.()
+      return
+    }
 
     const movieId = parseInt(movieIdStr)
 
@@ -134,7 +143,7 @@ export function useMovieActions({
 
     try {
       const response = await fetch(
-        `/api/watchlist?userId=${userId}&movieId=${movieId}`,
+        `/api/watchlist?movieId=${movieId}`,
         { method: 'DELETE' }
       )
 
@@ -159,10 +168,13 @@ export function useMovieActions({
         return { ...prev, loading: newLoading }
       })
     }
-  }, [userId])
+  }, [userId, onAuthRequired])
 
   const likeMovie = useCallback(async (movie: TMDBMovie) => {
-    if (!userId) return
+    if (!userId) {
+      onAuthRequired?.()
+      return
+    }
 
     const movieId = movie.id
     const wasLiked = state.likes.has(movieId)
@@ -193,7 +205,7 @@ export function useMovieActions({
       if (wasLiked) {
         // Remove like
         const response = await fetch(
-          `/api/likes?userId=${userId}&movieId=${movieId}&type=like`,
+          `/api/likes?movieId=${movieId}&type=like`,
           { method: 'DELETE' }
         )
 
@@ -210,7 +222,6 @@ export function useMovieActions({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            userId,
             movieId,
             movieTitle: movie.title,
             type: 'like'
@@ -248,10 +259,13 @@ export function useMovieActions({
         return { ...prev, loading: newLoading }
       })
     }
-  }, [userId, state.likes])
+  }, [userId, onAuthRequired, state.likes])
 
   const dislikeMovie = useCallback(async (movie: TMDBMovie) => {
-    if (!userId) return
+    if (!userId) {
+      onAuthRequired?.()
+      return
+    }
 
     const movieId = movie.id
     const wasDisliked = state.dislikes.has(movieId)
@@ -282,7 +296,7 @@ export function useMovieActions({
       if (wasDisliked) {
         // Remove dislike
         const response = await fetch(
-          `/api/likes?userId=${userId}&movieId=${movieId}&type=dislike`,
+          `/api/likes?movieId=${movieId}&type=dislike`,
           { method: 'DELETE' }
         )
 
@@ -299,7 +313,6 @@ export function useMovieActions({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            userId,
             movieId,
             movieTitle: movie.title,
             type: 'dislike'
@@ -337,7 +350,7 @@ export function useMovieActions({
         return { ...prev, loading: newLoading }
       })
     }
-  }, [userId, state.dislikes])
+  }, [userId, onAuthRequired, state.dislikes])
 
   return {
     // State checkers

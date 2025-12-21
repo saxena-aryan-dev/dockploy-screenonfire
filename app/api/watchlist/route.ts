@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 // Force dynamic rendering
@@ -7,18 +8,17 @@ export const dynamic = 'force-dynamic'
 // GET: Fetch user's watchlist
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url)
-    const userId = searchParams.get('userId')
+    const session = await auth()
 
-    if (!userId) {
+    if (!session || !session.user) {
       return NextResponse.json(
-        { error: 'userId is required' },
-        { status: 400 }
+        { error: 'Unauthorized. Please log in.' },
+        { status: 401 }
       )
     }
 
     const watchlist = await prisma.watchlistItem.findMany({
-      where: { userId },
+      where: { userId: session.user.id },
       orderBy: { addedAt: 'desc' }
     })
 
@@ -42,12 +42,21 @@ export async function GET(req: NextRequest) {
 // POST: Add movie to watchlist
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const { userId, movieId, movieTitle, posterUrl } = body
+    const session = await auth()
 
-    if (!userId || !movieId || !movieTitle) {
+    if (!session || !session.user) {
       return NextResponse.json(
-        { error: 'userId, movieId, and movieTitle are required' },
+        { error: 'Unauthorized. Please log in.' },
+        { status: 401 }
+      )
+    }
+
+    const body = await req.json()
+    const { movieId, movieTitle, posterUrl } = body
+
+    if (!movieId || !movieTitle) {
+      return NextResponse.json(
+        { error: 'movieId and movieTitle are required' },
         { status: 400 }
       )
     }
@@ -56,7 +65,7 @@ export async function POST(req: NextRequest) {
     const existing = await prisma.watchlistItem.findUnique({
       where: {
         userId_movieId: {
-          userId,
+          userId: session.user.id,
           movieId: Number(movieId)
         }
       }
@@ -71,7 +80,7 @@ export async function POST(req: NextRequest) {
 
     const watchlistItem = await prisma.watchlistItem.create({
       data: {
-        userId,
+        userId: session.user.id,
         movieId: Number(movieId),
         movieTitle,
         posterUrl: posterUrl || null
@@ -97,13 +106,21 @@ export async function POST(req: NextRequest) {
 // DELETE: Remove movie from watchlist
 export async function DELETE(req: NextRequest) {
   try {
+    const session = await auth()
+
+    if (!session || !session.user) {
+      return NextResponse.json(
+        { error: 'Unauthorized. Please log in.' },
+        { status: 401 }
+      )
+    }
+
     const { searchParams } = new URL(req.url)
-    const userId = searchParams.get('userId')
     const movieId = searchParams.get('movieId')
 
-    if (!userId || !movieId) {
+    if (!movieId) {
       return NextResponse.json(
-        { error: 'userId and movieId are required' },
+        { error: 'movieId is required' },
         { status: 400 }
       )
     }
@@ -111,7 +128,7 @@ export async function DELETE(req: NextRequest) {
     await prisma.watchlistItem.delete({
       where: {
         userId_movieId: {
-          userId,
+          userId: session.user.id,
           movieId: Number(movieId)
         }
       }

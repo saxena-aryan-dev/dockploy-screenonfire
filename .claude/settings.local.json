@@ -30,7 +30,15 @@
       "Bash(npx prisma migrate:*)",
       "Bash(findstr:*)",
       "Bash(git commit:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "Bash(netstat:*)",
+      "Bash(taskkill /F /PID 7252)",
+      "Bash(taskkill //F //PID 7252)",
+      "Bash(if exist \"node_modules\\\\.cache\" rmdir /s /q \"node_modules\\\\.cache\")",
+      "Bash(taskkill //F //PID 10128)",
+      "Bash(taskkill //F //PID 21888)",
+      "Bash(openssl rand:*)",
+      "Bash(git rm:*)"
     ],
     "deny": [],
     "ask": []
