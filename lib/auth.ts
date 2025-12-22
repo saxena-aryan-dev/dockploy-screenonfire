@@ -6,6 +6,7 @@ import { verifyPassword } from "@/lib/auth-utils"
 
 export const authOptions: NextAuthConfig = {
   adapter: PrismaAdapter(prisma),
+  trustHost: true, // Trust the host in production (required for NextAuth.js v5)
   providers: [
     CredentialsProvider({
       name: "credentials",
