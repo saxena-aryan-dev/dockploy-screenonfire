@@ -199,6 +199,39 @@ git commit -m "Add initial database migration"
 git push
 ```
 
+### 5.3 Apply Password Field Migration (Critical)
+
+**⚠️ IMPORTANT**: If you're experiencing user registration errors about missing `password` column, run this migration:
+
+1. **Via Dokploy Terminal**:
+   ```bash
+   npx prisma migrate deploy
+   ```
+
+2. **Or via SSH** (if you have direct database access):
+   ```bash
+   # SSH into VPS
+   ssh root@your-vps-ip
+
+   # Access app container
+   docker exec -it <screenonfire-container> sh
+
+   # Run migration
+   npx prisma migrate deploy
+   ```
+
+3. **Verify migration was applied**:
+   ```bash
+   # Check if password column exists
+   npx prisma db execute --stdin <<EOF
+   SELECT column_name, data_type, is_nullable
+   FROM information_schema.columns
+   WHERE table_name = 'User' AND column_name = 'password';
+   EOF
+   ```
+
+**Expected output**: Should show `password` column with type `text` and `is_nullable = YES`
+
 ---
 
 ## Step 6: Configure Domain & SSL

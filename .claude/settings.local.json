@@ -43,7 +43,9 @@
       "Bash(npx prisma db push:*)",
       "Bash(npx dotenv:*)",
       "Bash(npx next build:*)",
-      "Bash(tee:*)"
+      "Bash(tee:*)",
+      "Bash(set DATABASE_URL=file:./prisma/dev.db)",
+      "Bash(mkdir:*)"
     ],
     "deny": [],
     "ask": []
