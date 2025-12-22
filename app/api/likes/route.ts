@@ -10,19 +10,20 @@ export async function GET(req: NextRequest) {
   try {
     const session = await auth()
 
-    if (!session || !session.user) {
+    if (!session || !session.user || !session.user.id) {
       return NextResponse.json(
         { error: 'Unauthorized. Please log in.' },
         { status: 401 }
       )
     }
 
+    const userId = session.user.id
     const { searchParams } = new URL(req.url)
     const type = searchParams.get('type') // 'like' or 'dislike' or 'all'
 
     if (type === 'like') {
       const likes = await prisma.movieLike.findMany({
-        where: { userId: session.user.id },
+        where: { userId },
         orderBy: { likedAt: 'desc' }
       })
       return NextResponse.json({
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
       })
     } else if (type === 'dislike') {
       const dislikes = await prisma.movieDislike.findMany({
-        where: { userId: session.user.id },
+        where: { userId },
         orderBy: { dislikedAt: 'desc' }
       })
       return NextResponse.json({
@@ -44,11 +45,11 @@ export async function GET(req: NextRequest) {
       // Get both likes and dislikes
       const [likes, dislikes] = await Promise.all([
         prisma.movieLike.findMany({
-          where: { userId: session.user.id },
+          where: { userId },
           orderBy: { likedAt: 'desc' }
         }),
         prisma.movieDislike.findMany({
-          where: { userId: session.user.id },
+          where: { userId },
           orderBy: { dislikedAt: 'desc' }
         })
       ])
@@ -80,13 +81,14 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth()
 
-    if (!session || !session.user) {
+    if (!session || !session.user || !session.user.id) {
       return NextResponse.json(
         { error: 'Unauthorized. Please log in.' },
         { status: 401 }
       )
     }
 
+    const userId = session.user.id
     const body = await req.json()
     const { movieId, movieTitle, type } = body
 
@@ -110,7 +112,7 @@ export async function POST(req: NextRequest) {
       // Remove dislike if exists
       await prisma.movieDislike.deleteMany({
         where: {
-          userId: session.user.id,
+          userId,
           movieId: movieIdNum
         }
       })
@@ -119,7 +121,7 @@ export async function POST(req: NextRequest) {
       const existing = await prisma.movieLike.findUnique({
         where: {
           userId_movieId: {
-            userId: session.user.id,
+            userId,
             movieId: movieIdNum
           }
         }
@@ -134,7 +136,7 @@ export async function POST(req: NextRequest) {
 
       const like = await prisma.movieLike.create({
         data: {
-          userId: session.user.id,
+          userId,
           movieId: movieIdNum,
           movieTitle
         }
@@ -149,7 +151,7 @@ export async function POST(req: NextRequest) {
       // Remove like if exists
       await prisma.movieLike.deleteMany({
         where: {
-          userId: session.user.id,
+          userId,
           movieId: movieIdNum
         }
       })
@@ -158,7 +160,7 @@ export async function POST(req: NextRequest) {
       const existing = await prisma.movieDislike.findUnique({
         where: {
           userId_movieId: {
-            userId: session.user.id,
+            userId,
             movieId: movieIdNum
           }
         }
@@ -173,7 +175,7 @@ export async function POST(req: NextRequest) {
 
       const dislike = await prisma.movieDislike.create({
         data: {
-          userId: session.user.id,
+          userId,
           movieId: movieIdNum,
           movieTitle
         }
@@ -201,13 +203,14 @@ export async function DELETE(req: NextRequest) {
   try {
     const session = await auth()
 
-    if (!session || !session.user) {
+    if (!session || !session.user || !session.user.id) {
       return NextResponse.json(
         { error: 'Unauthorized. Please log in.' },
         { status: 401 }
       )
     }
 
+    const userId = session.user.id
     const { searchParams } = new URL(req.url)
     const movieId = searchParams.get('movieId')
     const type = searchParams.get('type') // 'like' or 'dislike'
@@ -232,7 +235,7 @@ export async function DELETE(req: NextRequest) {
       await prisma.movieLike.delete({
         where: {
           userId_movieId: {
-            userId: session.user.id,
+            userId,
             movieId: movieIdNum
           }
         }
@@ -241,7 +244,7 @@ export async function DELETE(req: NextRequest) {
       await prisma.movieDislike.delete({
         where: {
           userId_movieId: {
-            userId: session.user.id,
+            userId,
             movieId: movieIdNum
           }
         }

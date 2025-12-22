@@ -188,17 +188,25 @@ export function FloatingChatButton() {
       <SheetTrigger asChild>
         <Button
           size="icon"
-          className="group fixed bottom-6 right-6 sm:bottom-8 sm:right-8 h-16 w-16 sm:h-[72px] sm:w-[72px] rounded-[20px] shadow-2xl bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-600 hover:from-yellow-500 hover:via-yellow-600 hover:to-amber-700 text-white z-50 transition-all duration-300 active:scale-95 border-0 hover:shadow-yellow-500/50 hover:shadow-[0_20px_60px_-15px] relative overflow-hidden"
+          className="floating-chat-trigger group !fixed !bottom-5 !right-5 sm:!bottom-6 sm:!right-6 !h-14 !w-14 sm:!h-[60px] sm:!w-[60px] !rounded-2xl !shadow-2xl bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-600 hover:from-yellow-500 hover:via-yellow-600 hover:to-amber-700 text-white transition-all duration-300 active:scale-95 !border-0 hover:shadow-yellow-500/50 hover:shadow-[0_20px_60px_-15px] !overflow-hidden pointer-events-auto"
+          style={{
+            zIndex: 9999,
+            isolation: 'isolate',
+            position: 'fixed',
+            bottom: '20px',
+            right: '20px'
+          }}
+          aria-label="Open AI Chat"
         >
           {/* Animated gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/20 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
           <div className="relative flex items-center justify-center">
-            <Bot className="w-7 h-7 sm:w-8 sm:h-8 text-white drop-shadow-lg transition-transform duration-300 group-hover:scale-110" strokeWidth={2} />
+            <Bot className="w-6 h-6 sm:w-7 sm:h-7 text-white drop-shadow-lg transition-transform duration-300 group-hover:scale-110" strokeWidth={2} />
           </div>
 
           {/* Active indicator */}
-          <div className="absolute top-2 right-2 w-3 h-3 bg-green-400 rounded-full border-2 border-white shadow-lg" />
+          <div className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-green-400 rounded-full border-2 border-white shadow-lg" />
         </Button>
       </SheetTrigger>
 

@@ -139,19 +139,11 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const user = await prisma.user.create({
-      data: {
-        email,
-        name: name || null,
-        avatar: avatar || null
-      }
-    })
-
-    return NextResponse.json({
-      success: true,
-      message: 'User created',
-      user
-    })
+    // Use the /api/auth/register endpoint instead
+    return NextResponse.json(
+      { error: 'Please use /api/auth/register to create a new account' },
+      { status: 400 }
+    )
   } catch (error) {
     console.error('Error creating user:', error)
     return NextResponse.json(

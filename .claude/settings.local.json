@@ -38,7 +38,12 @@
       "Bash(taskkill //F //PID 10128)",
       "Bash(taskkill //F //PID 21888)",
       "Bash(openssl rand:*)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(cat:*)",
+      "Bash(npx prisma db push:*)",
+      "Bash(npx dotenv:*)",
+      "Bash(npx next build:*)",
+      "Bash(tee:*)"
     ],
     "deny": [],
     "ask": []

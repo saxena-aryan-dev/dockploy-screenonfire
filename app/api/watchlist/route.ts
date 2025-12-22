@@ -10,15 +10,16 @@ export async function GET(req: NextRequest) {
   try {
     const session = await auth()
 
-    if (!session || !session.user) {
+    if (!session || !session.user || !session.user.id) {
       return NextResponse.json(
         { error: 'Unauthorized. Please log in.' },
         { status: 401 }
       )
     }
 
+    const userId = session.user.id
     const watchlist = await prisma.watchlistItem.findMany({
-      where: { userId: session.user.id },
+      where: { userId },
       orderBy: { addedAt: 'desc' }
     })
 
@@ -44,13 +45,14 @@ export async function POST(req: NextRequest) {
   try {
     const session = await auth()
 
-    if (!session || !session.user) {
+    if (!session || !session.user || !session.user.id) {
       return NextResponse.json(
         { error: 'Unauthorized. Please log in.' },
         { status: 401 }
       )
     }
 
+    const userId = session.user.id
     const body = await req.json()
     const { movieId, movieTitle, posterUrl } = body
 
@@ -65,7 +67,7 @@ export async function POST(req: NextRequest) {
     const existing = await prisma.watchlistItem.findUnique({
       where: {
         userId_movieId: {
-          userId: session.user.id,
+          userId,
           movieId: Number(movieId)
         }
       }
@@ -80,7 +82,7 @@ export async function POST(req: NextRequest) {
 
     const watchlistItem = await prisma.watchlistItem.create({
       data: {
-        userId: session.user.id,
+        userId,
         movieId: Number(movieId),
         movieTitle,
         posterUrl: posterUrl || null
@@ -108,13 +110,14 @@ export async function DELETE(req: NextRequest) {
   try {
     const session = await auth()
 
-    if (!session || !session.user) {
+    if (!session || !session.user || !session.user.id) {
       return NextResponse.json(
         { error: 'Unauthorized. Please log in.' },
         { status: 401 }
       )
     }
 
+    const userId = session.user.id
     const { searchParams } = new URL(req.url)
     const movieId = searchParams.get('movieId')
 
@@ -128,7 +131,7 @@ export async function DELETE(req: NextRequest) {
     await prisma.watchlistItem.delete({
       where: {
         userId_movieId: {
-          userId: session.user.id,
+          userId,
           movieId: Number(movieId)
         }
       }

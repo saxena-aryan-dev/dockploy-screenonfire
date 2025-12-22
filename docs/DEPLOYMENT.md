@@ -108,6 +108,10 @@ In the **Environment** tab, add:
 # Database
 DATABASE_URL=postgresql://screenonfire_user:password@postgres:5432/screenonfire?schema=public
 
+# NextAuth Configuration
+NEXTAUTH_URL=https://your-domain.com
+NEXTAUTH_SECRET=your_generated_secret_here
+
 # TMDB API
 TMDB_API_KEY=your_tmdb_api_key_here
 TMDB_ACCESS_TOKEN=your_tmdb_access_token_here
@@ -121,6 +125,12 @@ NODE_ENV=production
 ```
 
 **⚠️ Replace placeholders** with your actual API keys and database credentials.
+
+**Generate NEXTAUTH_SECRET**:
+```bash
+openssl rand -base64 32
+```
+This generates a secure random secret for NextAuth.js session encryption.
 
 ---
 

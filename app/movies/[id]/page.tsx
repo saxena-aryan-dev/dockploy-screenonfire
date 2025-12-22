@@ -109,9 +109,8 @@ export default function MovieDetailsPage() {
   const [aiReview, setAiReview] = useState("")
   const [isReviewLoading, setIsReviewLoading] = useState(false)
 
-  // Movie actions hook (using default user for now)
+  // Movie actions hook
   const movieActions = useMovieActions({
-    userId: 'default-user',
     initialWatchlist: [],
     initialLikes: [],
     initialDislikes: []
