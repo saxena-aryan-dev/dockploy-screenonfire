@@ -45,7 +45,11 @@
       "Bash(npx next build:*)",
       "Bash(tee:*)",
       "Bash(set DATABASE_URL=file:./prisma/dev.db)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(timeout 15 bash:*)",
+      "Bash(node test-review-api.js:*)",
+      "Bash(node test-review-streaming.js:*)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []
