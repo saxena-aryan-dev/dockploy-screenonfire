@@ -82,7 +82,7 @@ export async function POST(req: Request) {
                 contents: prompt,
                 config: {
                   temperature: 0.6, // Balanced for creativity and speed
-                  maxOutputTokens: 800,
+                  maxOutputTokens: 2048, // Increased to prevent truncation with thinking tokens
                 },
               })
 
@@ -123,7 +123,7 @@ export async function POST(req: Request) {
         contents: prompt,
         config: {
           temperature: 0.6,
-          maxOutputTokens: 800,
+          maxOutputTokens: 2048, // Increased to prevent truncation with thinking tokens
         },
       })
 

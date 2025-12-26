@@ -49,7 +49,8 @@
       "Bash(timeout 15 bash:*)",
       "Bash(node test-review-api.js:*)",
       "Bash(node test-review-streaming.js:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(taskkill //F //PID 20712)"
     ],
     "deny": [],
     "ask": []
