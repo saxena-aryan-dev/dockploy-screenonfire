@@ -5,7 +5,6 @@ import { AuthModal as AuthModalBase } from "@/components/auth/auth-modal"
 interface AuthModalProps {
   isOpen: boolean
   onClose: () => void
-  onAuthSuccess?: () => void
 }
 
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {

@@ -36,11 +36,11 @@ export const authOptions: NextAuthConfig = {
       return token
     },
     async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.id as string
-        session.user.email = token.email as string
-        session.user.name = token.name as string
-        session.user.image = token.picture as string
+      if (session?.user) {
+        session.user.id = (token.id as string) ?? ""
+        session.user.email = (token.email as string) ?? ""
+        session.user.name = (token.name as string) ?? ""
+        session.user.image = (token.picture as string) ?? ""
       }
       return session
     }
