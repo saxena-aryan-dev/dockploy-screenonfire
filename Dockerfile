@@ -52,4 +52,4 @@ RUN chmod +x ./scripts/startup.sh
 USER nextjs
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma db push --accept-data-loss --skip-generate 2>&1 || echo 'DB push failed, continuing...'; node server.js"]
+CMD ["node", "server.js"]
