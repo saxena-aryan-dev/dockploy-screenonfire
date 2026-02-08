@@ -1,4 +1,4 @@
-FROM node:18-alpine AS base
+FROM node:20-alpine AS base
 
 # Stage 1: Install dependencies
 FROM base AS deps
@@ -6,7 +6,7 @@ RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY prisma ./prisma/
-RUN npm ci --legacy-peer-deps
+RUN npm install --legacy-peer-deps
 
 # Stage 2: Build the application
 FROM base AS builder
@@ -15,13 +15,10 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Next.js needs NEXT_PUBLIC_* vars at build time
-ARG NEXT_PUBLIC_SUPABASE_URL
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
-ARG NEXT_PUBLIC_TMDB_ACCESS_TOKEN
-ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
-ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
-ENV NEXT_PUBLIC_TMDB_ACCESS_TOKEN=$NEXT_PUBLIC_TMDB_ACCESS_TOKEN
+# Next.js inlines NEXT_PUBLIC_* at build time — hardcoded here so Dokploy builds work
+ENV NEXT_PUBLIC_SUPABASE_URL=https://khyqttsglmpuiexpfpfu.supabase.co
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtoeXF0dHNnbG1wdWlleHBmcGZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA1NTI4NDYsImV4cCI6MjA4NjEyODg0Nn0.pDYZxUP9tiT_c-yOaYOE3jYWk-lDIN0vwM8VqHusB-M
+ENV NEXT_PUBLIC_TMDB_ACCESS_TOKEN=eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIyNGRiZWYzOTRmOTAzNGMwM2ViNmM5M2E4ZjA0M2MwNSIsIm5iZiI6MTc1MjkzMTUwOS44MzMsInN1YiI6IjY4N2I5Y2I1ZGZmMDA4MWRhYzcyYzI1YiIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.RmEVeq7ssiU0LSkUj9ihGMySUeS3y3CbeKs_00BCsi4
 
 RUN npx prisma generate
 RUN npm run build
