@@ -353,11 +353,11 @@ export function useMovieActions({
   }, [userId, onAuthRequired, state.dislikes])
 
   return {
-    // State checkers
-    isInWatchlist: (movieId: number) => state.watchlist.has(movieId),
-    isLiked: (movieId: number) => state.likes.has(movieId),
-    isDisliked: (movieId: number) => state.dislikes.has(movieId),
-    isLoading: (movieId: number) => state.loading.has(movieId),
+    // State checkers (accept both string and number since callers use .toString())
+    isInWatchlist: (movieId: number | string) => state.watchlist.has(typeof movieId === 'string' ? parseInt(movieId) : movieId),
+    isLiked: (movieId: number | string) => state.likes.has(typeof movieId === 'string' ? parseInt(movieId) : movieId),
+    isDisliked: (movieId: number | string) => state.dislikes.has(typeof movieId === 'string' ? parseInt(movieId) : movieId),
+    isLoading: (movieId: number | string) => state.loading.has(typeof movieId === 'string' ? parseInt(movieId) : movieId),
 
     // Actions
     addToWatchlist,

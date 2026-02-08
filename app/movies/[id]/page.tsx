@@ -428,7 +428,7 @@ export default function MovieDetailsPage() {
                   <div className="relative flex items-center gap-2">
                     <Heart className={`h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 transition-all ${movieActions.isInWatchlist(movieId) ? 'fill-current' : ''}`} />
                     <span className="hidden sm:inline">{movieActions.isInWatchlist(movieId) ? "In your Watchlist" : "Add to Watchlist"}</span>
-                    <span className="sm:hidden">{movieActions.isInWatchlist(movieId) ? "Added" : "Watchlist"}</span>
+                    <span className="sm:hidden">{movieActions.isInWatchlist(movieId) ? "Added" : "Add"}</span>
                   </div>
                 </button>
 
