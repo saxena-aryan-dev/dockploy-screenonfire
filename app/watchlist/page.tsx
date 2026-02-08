@@ -98,7 +98,6 @@ export default function WatchlistPage() {
               </div>
               <AuthButtons
                 onLoginClick={() => setShowAuthModal(true)}
-                onSignupClick={() => setShowAuthModal(true)}
               />
             </div>
           </div>

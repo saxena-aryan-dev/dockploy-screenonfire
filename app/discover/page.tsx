@@ -506,9 +506,6 @@ export default function MovieRecommender() {
     await supabase.auth.signOut()
   }
 
-  const handleAuthSuccess = () => {
-    // User state will be updated by the auth state change listener
-  }
 
   const handleMarkAsWatched = useCallback((movieId: string) => {
     setWatchedMovies((prev) => {
@@ -1092,7 +1089,7 @@ export default function MovieRecommender() {
       </div>
 
       <Suspense fallback={<div />}>
-        <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} onAuthSuccess={handleAuthSuccess} />
+        <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
       </Suspense>
     </div>
   )

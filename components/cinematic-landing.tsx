@@ -56,7 +56,6 @@ export default function CinematicLanding() {
   const [contentType, setContentType] = useState<"movies" | "series">("movies")
   const [sortType, setSortType] = useState<"popular" | "trending" | "top-rated" | "indian">("popular")
   const [showAuthModal, setShowAuthModal] = useState(false)
-  const [authModalTab, setAuthModalTab] = useState<"login" | "signup">("login")
 
   const router = useRouter()
   const scrollY = useScrollY()
@@ -75,7 +74,6 @@ export default function CinematicLanding() {
     dislikeMovie
   } = useMovieActions({
     onAuthRequired: () => {
-      setAuthModalTab("login")
       setShowAuthModal(true)
     }
   })
@@ -466,14 +464,7 @@ export default function CinematicLanding() {
                 <UserMenu user={session.user} />
               ) : (
                 <AuthButtons
-                  onLoginClick={() => {
-                    setAuthModalTab("login")
-                    setShowAuthModal(true)
-                  }}
-                  onSignupClick={() => {
-                    setAuthModalTab("signup")
-                    setShowAuthModal(true)
-                  }}
+                  onLoginClick={() => setShowAuthModal(true)}
                 />
               )}
             </div>
@@ -1106,7 +1097,6 @@ export default function CinematicLanding() {
       <AuthModal
         open={showAuthModal}
         onOpenChange={setShowAuthModal}
-        defaultTab={authModalTab}
       />
     </div>
   )
