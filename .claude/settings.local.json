@@ -50,7 +50,9 @@
       "Bash(node test-review-api.js:*)",
       "Bash(node test-review-streaming.js:*)",
       "Bash(node:*)",
-      "Bash(taskkill //F //PID 20712)"
+      "Bash(taskkill //F //PID 20712)",
+      "Bash(git checkout:*)",
+      "Bash(GIT_EDITOR=true git rebase:*)"
     ],
     "deny": [],
     "ask": []

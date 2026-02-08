@@ -37,3 +37,9 @@ coverage/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Claude
+.claude
+
+# Vercel
+.vercel

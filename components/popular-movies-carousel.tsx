@@ -1,6 +1,7 @@
 "use client"
 
-import { Star, Eye, Heart, ChevronRight } from "lucide-react"
+import { useState } from "react"
+import { Star, Eye, Plus, ChevronRight } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { OptimizedImage } from "@/components/optimized-image"
@@ -12,7 +13,6 @@ interface PopularMoviesCarouselProps {
   title?: string
   isInWatchlist: (movieId: string) => boolean
   onAddToWatchlist: (movie: TMDBMovie) => void
-  onRemoveFromWatchlist?: (movieId: string) => void
   onMarkAsWatched?: (movieId: string) => void
   watchedMovies?: Set<string>
 }
@@ -22,7 +22,6 @@ export function PopularMoviesCarousel({
   title = "Most popular movies this week",
   isInWatchlist,
   onAddToWatchlist,
-  onRemoveFromWatchlist,
   onMarkAsWatched,
   watchedMovies = new Set(),
 }: PopularMoviesCarouselProps) {
@@ -35,14 +34,15 @@ export function PopularMoviesCarousel({
     }
   }
 
-  const handleWatchlistToggle = (e: React.MouseEvent, movie: TMDBMovie) => {
+  const handleAddToWatchlist = (e: React.MouseEvent, movie: TMDBMovie) => {
     e.stopPropagation()
-    const inWatchlist = isInWatchlist(movie.id.toString())
-    if (inWatchlist && onRemoveFromWatchlist) {
-      onRemoveFromWatchlist(movie.id.toString())
-    } else {
-      onAddToWatchlist(movie)
-    }
+    onAddToWatchlist(movie)
+  }
+
+  const getRatingColor = (rating: number) => {
+    if (rating >= 8) return "text-green-400"
+    if (rating >= 6) return "text-yellow-400"
+    return "text-orange-400"
   }
 
   return (
@@ -79,17 +79,17 @@ export function PopularMoviesCarousel({
                     priority={index < 3}
                   />
 
-                  {/* Heart Button (Add/Remove from Watchlist) */}
+                  {/* Plus Button (Add to Watchlist) */}
                   <Button
                     size="icon"
-                    onClick={(e) => handleWatchlistToggle(e, movie)}
-                    className={`absolute top-3 left-3 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 shadow-lg ${
+                    onClick={(e) => handleAddToWatchlist(e, movie)}
+                    className={`absolute top-3 left-3 w-10 h-10 rounded-full flex items-center justify-center transition-all ${
                       inWatchlist
-                        ? "bg-yellow-500 text-black hover:bg-yellow-400 scale-110"
-                        : "bg-black/70 hover:bg-black/90 text-white border-2 border-gray-700 hover:border-yellow-500"
+                        ? "bg-yellow-500 text-black hover:bg-yellow-400"
+                        : "bg-black/60 hover:bg-black/80 text-white"
                     }`}
                   >
-                    <Heart className={`w-5 h-5 transition-all duration-300 ${inWatchlist ? "fill-current" : ""}`} />
+                    <Plus className="w-5 h-5" />
                   </Button>
 
                   {/* Rank Badge */}

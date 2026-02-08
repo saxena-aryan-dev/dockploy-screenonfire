@@ -1,8 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Output configuration for serverless deployment
   output: 'standalone',
-
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -18,7 +16,7 @@ const nextConfig = {
   },
   experimental: {
     serverActions: {
-      allowedOrigins: ['localhost:3000', 'localhost:3001', '*.vercel.app']
+      allowedOrigins: ['localhost:3000', 'localhost:3001', '*.vercel.app', 'screenonfire.in', '*.screenonfire.in']
     },
     optimizePackageImports: [
       '@radix-ui/react-accordion',
