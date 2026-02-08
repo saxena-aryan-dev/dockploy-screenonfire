@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Star, Eye, Plus, ChevronRight } from "lucide-react"
+import { Star, Eye, Heart, ChevronRight } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { OptimizedImage } from "@/components/optimized-image"
@@ -79,7 +79,7 @@ export function PopularMoviesCarousel({
                     priority={index < 3}
                   />
 
-                  {/* Plus Button (Add to Watchlist) */}
+                  {/* Heart Button (Add to Watchlist) */}
                   <Button
                     size="icon"
                     onClick={(e) => handleAddToWatchlist(e, movie)}
@@ -89,7 +89,7 @@ export function PopularMoviesCarousel({
                         : "bg-black/60 hover:bg-black/80 text-white"
                     }`}
                   >
-                    <Plus className="w-5 h-5" />
+                    <Heart className={`w-5 h-5 transition-all ${inWatchlist ? "fill-current" : ""}`} />
                   </Button>
 
                   {/* Rank Badge */}

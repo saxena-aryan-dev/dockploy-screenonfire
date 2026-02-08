@@ -791,7 +791,7 @@ export default function MovieRecommender() {
                               isInWatchlist(featuredMovie.id.toString()) ? "fill-current text-blue-400 scale-110" : ""
                             }`}
                           />
-                          <span className="hidden sm:inline">{isInWatchlist(featuredMovie.id.toString()) ? "Added to Watchlist" : "Add to Watchlist"}</span>
+                          <span className="hidden sm:inline">{isInWatchlist(featuredMovie.id.toString()) ? "In your Watchlist" : "Add to Watchlist"}</span>
                           <span className="sm:hidden">{isInWatchlist(featuredMovie.id.toString()) ? "Added" : "Add"}</span>
                         </Button>
                         <Button
