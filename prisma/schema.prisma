@@ -15,13 +15,14 @@ datasource db {
 // ============================================
 
 model User {
-  id            String   @id @default(uuid())
-  email         String   @unique
+  id            String    @id @default(uuid())
+  email         String    @unique
   name          String?
-  avatar        String?
-  password      String?  // bcrypt hashed password (nullable for OAuth users)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  image         String?
+  emailVerified DateTime?
+  password      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   // Relations
   watchlist     WatchlistItem[]

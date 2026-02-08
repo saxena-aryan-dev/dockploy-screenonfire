@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
       acc[reaction.type].users.push({
         id: reaction.user.id,
         name: reaction.user.name,
-        avatar: reaction.user.avatar
+        avatar: reaction.user.image
       })
       return acc
     }, {})
