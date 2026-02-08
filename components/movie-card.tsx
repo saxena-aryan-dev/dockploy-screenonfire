@@ -12,15 +12,19 @@ import { getYear } from "@/lib/date"
 interface MovieCardProps {
   movie: TMDBMovie
   isInWatchlist: boolean
-  onAddToWatchlist: (movie: TMDBMovie) => void
-  onRemoveFromWatchlist: (movieId: string) => void
+  onAddToWatchlist?: (movie: TMDBMovie) => void
+  onRemoveFromWatchlist?: (movieId: string) => void
+  isLiked?: boolean
+  isDisliked?: boolean
+  onLike?: (movie: TMDBMovie) => void
+  onDislike?: (movie: TMDBMovie) => void
 }
 
 const MovieCard = memo(function MovieCard({
   movie,
   isInWatchlist,
   onAddToWatchlist,
-  onRemoveFromWatchlist
+  onRemoveFromWatchlist,
 }: MovieCardProps) {
   const router = useRouter()
 

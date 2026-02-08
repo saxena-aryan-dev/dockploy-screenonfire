@@ -29,12 +29,6 @@ if [ "$db_ready" = false ]; then
   echo "⚠️  App will start but database features may not work"
 fi
 
-# Try to create default user (optional)
-if [ "$db_ready" = true ]; then
-  echo "👤 Creating default user..."
-  npx tsx scripts/seed-default-user.ts 2>/dev/null || echo "⚠️  Default user creation skipped"
-fi
-
 # Start Next.js server (this MUST run regardless of database status)
 echo "🌟 Starting Next.js server..."
 echo "📍 Server will listen on 0.0.0.0:3000"
