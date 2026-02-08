@@ -76,7 +76,7 @@ const MovieCard = memo(function MovieCard({
           onClick={handleWatchlistToggle}
           className={`absolute top-2 right-2 h-8 w-8 rounded-full transition-all duration-200 z-10 ${
             isInWatchlist
-              ? "bg-yellow-500 hover:bg-yellow-400 text-black"
+              ? "bg-blue-500 hover:bg-blue-400 text-white"
               : "bg-black/70 hover:bg-black/90 text-white backdrop-blur-sm border border-gray-700"
           }`}
         >

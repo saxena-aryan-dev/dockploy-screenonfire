@@ -85,7 +85,7 @@ export function PopularMoviesCarousel({
                     onClick={(e) => handleAddToWatchlist(e, movie)}
                     className={`absolute top-3 left-3 w-10 h-10 rounded-full flex items-center justify-center transition-all ${
                       inWatchlist
-                        ? "bg-yellow-500 text-black hover:bg-yellow-400"
+                        ? "bg-blue-500 text-white hover:bg-blue-400"
                         : "bg-black/60 hover:bg-black/80 text-white"
                     }`}
                   >

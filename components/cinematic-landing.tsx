@@ -796,18 +796,23 @@ export default function CinematicLanding() {
                             variant="outline"
                             className={`border-2 font-semibold transition-all duration-300 hover:scale-105 shadow-lg ${
                               isInWatchlist(featuredMovie.id.toString())
-                                ? "border-yellow-500 text-yellow-500 bg-yellow-500/10 hover:bg-yellow-500/20"
+                                ? "border-blue-500 text-blue-400 bg-blue-500/10 hover:bg-blue-500/20"
                                 : "border-white/40 text-white hover:border-white hover:bg-white/10"
                             }`}
-                            onClick={() => addToWatchlist(featuredMovie)}
-                            disabled={isInWatchlist(featuredMovie.id.toString())}
+                            onClick={() => {
+                              if (isInWatchlist(featuredMovie.id.toString())) {
+                                removeFromWatchlist(featuredMovie.id.toString())
+                              } else {
+                                addToWatchlist(featuredMovie)
+                              }
+                            }}
                           >
                             <Heart
                               className={`h-5 w-5 mr-2 transition-all duration-300 ${
-                                isInWatchlist(featuredMovie.id.toString()) ? "fill-current scale-110" : ""
+                                isInWatchlist(featuredMovie.id.toString()) ? "fill-current text-blue-400 scale-110" : ""
                               }`}
                             />
-                            <span className="hidden sm:inline">{isInWatchlist(featuredMovie.id.toString()) ? "In Watchlist" : "Add to Watchlist"}</span>
+                            <span className="hidden sm:inline">{isInWatchlist(featuredMovie.id.toString()) ? "Added to Watchlist" : "Add to Watchlist"}</span>
                             <span className="sm:hidden">{isInWatchlist(featuredMovie.id.toString()) ? "Added" : "Add"}</span>
                           </Button>
                           <Button
