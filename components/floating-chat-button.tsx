@@ -178,7 +178,10 @@ export function FloatingChatButton() {
       <SheetTrigger asChild>
         <Button
           size="icon"
-          className="floating-chat-trigger group !fixed !bottom-5 !right-5 sm:!bottom-6 sm:!right-6 !h-14 !w-14 !rounded-2xl bg-yellow-500 hover:bg-yellow-600 text-black transition-all duration-200 active:scale-95 !border-0 shadow-lg pointer-events-auto"
+          className={cn(
+            "floating-chat-trigger group !fixed !bottom-5 !right-5 sm:!bottom-6 sm:!right-6 !h-14 !w-14 !rounded-2xl bg-yellow-500 hover:bg-yellow-600 text-black transition-all duration-200 active:scale-95 !border-0 shadow-lg pointer-events-auto",
+            isOpen && "!hidden"
+          )}
           style={{
             zIndex: 9999,
             isolation: 'isolate',
