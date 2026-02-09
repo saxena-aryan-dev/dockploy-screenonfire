@@ -8,6 +8,7 @@ import {
   Film, Award, Clock
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 
 // Type definitions
@@ -209,6 +210,7 @@ const EnhancedWeightSlider: React.FC<{
 // Main Enhanced Recommender UI
 const EnhancedRecommenderUI: React.FC = () => {
   const router = useRouter();
+  const { data: session } = useSession();
   const [selectedMovies, setSelectedMovies] = useState<Movie[]>([]);
   const [weights, setWeights] = useState<Weights>(DEFAULT_WEIGHTS);
   const [isLoading, setIsLoading] = useState(false);
@@ -223,6 +225,9 @@ const EnhancedRecommenderUI: React.FC = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState<string>('');
+  const [excludeMovieIds, setExcludeMovieIds] = useState<number[]>([]);
+  const [movieRatings, setMovieRatings] = useState<Record<number, number>>({});
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   // Search TMDB
   const searchMovies = useCallback(async (query: string) => {
@@ -266,6 +271,76 @@ const EnhancedRecommenderUI: React.FC = () => {
     const timeoutId = setTimeout(() => searchMovies(searchTerm), 300);
     return () => clearTimeout(timeoutId);
   }, [searchTerm, searchMovies]);
+
+  const handleLoadFromHistory = useCallback(async () => {
+    setIsLoadingHistory(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/user-movie-profile');
+      if (!response.ok) {
+        if (response.status === 401) {
+          setError('Please sign in to load your movie history');
+          return;
+        }
+        throw new Error('Failed to load history');
+      }
+
+      const data = await response.json();
+
+      // Map TMDB movie objects to component's Movie type
+      const historyMovies: Movie[] = [
+        ...(data.likes || []),
+        ...(data.watchlist || [])
+      ]
+        .filter((movie: any, index: number, self: any[]) =>
+          index === self.findIndex(m => m.id === movie.id)
+        )
+        .map((tmdbMovie: any) => ({
+          id: tmdbMovie.id,
+          title: tmdbMovie.title,
+          year: tmdbMovie.release_date ? new Date(tmdbMovie.release_date).getFullYear() : undefined,
+          posterPath: tmdbMovie.poster_path,
+          poster_path: tmdbMovie.poster_path,
+          genres: [],
+          genre_ids: tmdbMovie.genre_ids || [],
+          rating: tmdbMovie.vote_average,
+          vote_average: tmdbMovie.vote_average,
+          overview: tmdbMovie.overview,
+          release_date: tmdbMovie.release_date,
+          popularity: tmdbMovie.popularity,
+          original_language: tmdbMovie.original_language
+        }));
+
+      if (historyMovies.length === 0) {
+        setError('No liked or watchlisted movies found. Like some movies first!');
+        return;
+      }
+
+      setSelectedMovies(historyMovies);
+
+      // Store exclusion IDs (disliked + seen)
+      const excludeIds = [
+        ...(data.dislikes || []),
+        ...(data.seen || [])
+      ];
+      setExcludeMovieIds(excludeIds);
+
+      // Store ratings for weighted profiles
+      if (data.ratings && data.ratings.length > 0) {
+        const ratingsMap: Record<number, number> = {};
+        for (const r of data.ratings) {
+          ratingsMap[r.movieId] = r.rating;
+        }
+        setMovieRatings(ratingsMap);
+      }
+
+    } catch (err) {
+      console.error('Failed to load history:', err);
+      setError('Failed to load your movie history. Please try again.');
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  }, []);
 
   const handleAddMovie = useCallback((movie: Movie) => {
     setSelectedMovies(prev => {
@@ -315,16 +390,28 @@ const EnhancedRecommenderUI: React.FC = () => {
       setTimeout(() => setLoadingMessage('Applying your custom preferences...'), 7000);
       setTimeout(() => setLoadingMessage('Selecting diverse recommendations...'), 9000);
 
+      const requestBody: any = {
+        selectedMovies: tmdbMovies,
+        weights: weights,
+        limit: 24,
+        minScore: 0.08, // Lowered threshold for more diverse recommendations
+        candidateSource: 'mixed'
+      };
+
+      // Phase 3a: Pass exclusion IDs (disliked + seen movies)
+      if (excludeMovieIds.length > 0) {
+        requestBody.excludeMovieIds = excludeMovieIds;
+      }
+
+      // Phase 2c: Pass user ratings for weighted profiles
+      if (Object.keys(movieRatings).length > 0) {
+        requestBody.movieRatings = movieRatings;
+      }
+
       const response = await fetch('/api/ml-recommendations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          selectedMovies: tmdbMovies,
-          weights: weights,
-          limit: 24,
-          minScore: 0.08, // Lowered threshold for more diverse recommendations
-          candidateSource: 'mixed'
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
@@ -346,7 +433,7 @@ const EnhancedRecommenderUI: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedMovies, weights]);
+  }, [selectedMovies, weights, excludeMovieIds, movieRatings]);
 
   const handleReset = useCallback(() => {
     setWeights(DEFAULT_WEIGHTS);
@@ -354,6 +441,8 @@ const EnhancedRecommenderUI: React.FC = () => {
     setRecommendations([]);
     setError(null);
     setMetadata(null);
+    setExcludeMovieIds([]);
+    setMovieRatings({});
   }, []);
 
   const sortedRecommendations = useMemo(() => {
@@ -381,6 +470,27 @@ const EnhancedRecommenderUI: React.FC = () => {
 
   const rightPaneContent = (
     <div className="space-y-6">
+      {/* Load from History */}
+      {session?.user && (
+        <button
+          onClick={handleLoadFromHistory}
+          disabled={isLoadingHistory}
+          className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-gray-700 disabled:to-gray-800 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-all duration-200 shadow-md hover:shadow-lg"
+        >
+          {isLoadingHistory ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              Loading your movies...
+            </>
+          ) : (
+            <>
+              <History className="w-4 h-4" />
+              Load from My History
+            </>
+          )}
+        </button>
+      )}
+
       {/* Movie Search */}
       <div className="space-y-3">
         <h2 className="text-lg font-bold text-white flex items-center gap-2">

@@ -86,7 +86,7 @@ export async function fetchFromTMDBServer(path: string, params?: Record<string, 
 export async function getMovieDetailsServer(movieId: number): Promise<any> {
   try {
     return await fetchFromTMDBServer(`/3/movie/${movieId}`, {
-      append_to_response: 'credits'
+      append_to_response: 'credits,keywords'
     });
   } catch (error) {
     console.warn(`Failed to fetch movie details for ${movieId}:`, error);
@@ -182,6 +182,18 @@ export async function discoverMoviesServer(params: {
     return await fetchFromTMDBServer('/3/discover/movie', queryParams);
   } catch (error) {
     console.warn('Failed to discover movies:', error);
+    return { results: [] };
+  }
+}
+
+/**
+ * Get TMDB recommendations for a movie (collaborative filtering - "users who liked X also liked Y")
+ */
+export async function getMovieRecommendationsServer(movieId: number, page: number = 1): Promise<any> {
+  try {
+    return await fetchFromTMDBServer(`/3/movie/${movieId}/recommendations`, { page: page.toString() });
+  } catch (error) {
+    console.warn(`Failed to fetch TMDB recommendations for ${movieId}:`, error);
     return { results: [] };
   }
 }

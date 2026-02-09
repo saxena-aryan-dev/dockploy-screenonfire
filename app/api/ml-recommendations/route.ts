@@ -9,8 +9,11 @@ import {
   getPopularMoviesServer,
   getTopRatedMoviesServer,
   discoverMoviesServer,
-  getSimilarMoviesServer
+  getSimilarMoviesServer,
+  getMovieRecommendationsServer
 } from '@/lib/tmdb-server'
+import { auth } from '@/lib/auth'
+import { prisma } from '@/lib/prisma'
 
 // Force dynamic rendering (prevents build-time execution)
 export const dynamic = 'force-dynamic'
@@ -26,6 +29,8 @@ interface MLRecommendationRequestBody {
   genreFilter?: number[]
   yearFilter?: number
   ratingFilter?: number
+  excludeMovieIds?: number[]
+  movieRatings?: Record<number, number>
 }
 
 export async function POST(req: NextRequest) {
@@ -35,14 +40,14 @@ export async function POST(req: NextRequest) {
     // Validate request
     if (!body.selectedMovies || !Array.isArray(body.selectedMovies) || body.selectedMovies.length === 0) {
       return Response.json(
-        { error: 'At least one selected movie is required' }, 
+        { error: 'At least one selected movie is required' },
         { status: 400 }
       )
     }
 
     if (!body.weights) {
       return Response.json(
-        { error: 'Recommendation weights are required' }, 
+        { error: 'Recommendation weights are required' },
         { status: 400 }
       )
     }
@@ -50,6 +55,49 @@ export async function POST(req: NextRequest) {
     const limit = Math.min(body.limit || 20, 50) // Cap at 50 recommendations
     const minScore = body.minScore || 0.1
     const candidateSource = body.candidateSource || 'mixed'
+
+    // Phase 3c: Server-side fallback exclusion for authenticated users
+    let serverExcludeIds: number[] = body.excludeMovieIds || []
+    let userPreferences: { favoriteGenres: number[]; preferredLanguages: string[] } | null = null
+
+    try {
+      const session = await auth()
+      if (session?.user?.id) {
+        const userId = session.user.id
+
+        // If no exclusion IDs were sent from the client, fetch them server-side (defense-in-depth)
+        if (serverExcludeIds.length === 0) {
+          const [dislikes, seen] = await Promise.all([
+            prisma.movieDislike.findMany({
+              where: { userId },
+              select: { movieId: true }
+            }),
+            prisma.seenMovie.findMany({
+              where: { userId },
+              select: { movieId: true }
+            })
+          ])
+          serverExcludeIds = [
+            ...dislikes.map(d => d.movieId),
+            ...seen.map(s => s.movieId)
+          ]
+          if (serverExcludeIds.length > 0) {
+            console.log(`Server-side fallback: excluding ${serverExcludeIds.length} disliked/seen movies`)
+          }
+        }
+
+        // Phase 6: Fetch user preferences for preference-based discovery
+        const prefs = await prisma.userPreference.findUnique({
+          where: { userId },
+          select: { favoriteGenres: true, preferredLanguages: true }
+        })
+        if (prefs) {
+          userPreferences = prefs
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to fetch user data for recommendations (continuing without):', error)
+    }
 
     // Get candidate movies from TMDB
     let candidateMovies: TMDBMovie[] = []
@@ -93,12 +141,12 @@ export async function POST(req: NextRequest) {
             getTopRatedMoviesServer(1)
           ])
           candidateMovies = [...(popular.results || []), ...(topRated.results || [])]
-          
+
           // Add some discovery movies if filters are provided
           if (body.genreFilter && body.genreFilter.length > 0) {
-            const discovered = await discoverMoviesServer({ 
-              genres: body.genreFilter, 
-              page: 1 
+            const discovered = await discoverMoviesServer({
+              genres: body.genreFilter,
+              page: 1
             })
             candidateMovies.push(...(discovered.results || []))
           }
@@ -110,31 +158,39 @@ export async function POST(req: NextRequest) {
         index === self.findIndex(m => m.id === movie.id)
       )
 
-      // PRIORITY 1: Get similar movies for ALL selected movies (not just first 3)
-      // Similar movies from TMDB are the most relevant candidates
-      console.log(`Fetching similar movies for ${body.selectedMovies.length} selected movies...`)
-      const similarMoviePromises = body.selectedMovies.map(async (movie) => {
+      // PRIORITY 1: Get similar movies AND TMDB recommendations for ALL selected movies
+      console.log(`Fetching similar + recommended movies for ${body.selectedMovies.length} selected movies...`)
+      const similarAndRecPromises = body.selectedMovies.map(async (movie) => {
         try {
-          // Fetch 2 pages of similar movies for each selected movie
-          const [page1, page2] = await Promise.all([
+          // Fetch similar (content-based) + recommendations (collaborative) in parallel
+          const [similarPage1, similarPage2, recsPage1] = await Promise.all([
             getSimilarMoviesServer(movie.id, 1),
-            getSimilarMoviesServer(movie.id, 2)
+            getSimilarMoviesServer(movie.id, 2),
+            getMovieRecommendationsServer(movie.id, 1)
           ])
-          const results = [...(page1.results || []), ...(page2.results || [])]
-          console.log(`Found ${results.length} similar movies for "${movie.title}"`)
-          return results
+          const similarResults = [...(similarPage1.results || []), ...(similarPage2.results || [])]
+          const recResults = recsPage1.results || []
+          console.log(`Found ${similarResults.length} similar + ${recResults.length} recommended for "${movie.title}"`)
+          return { similar: similarResults, recommended: recResults }
         } catch (error) {
-          console.warn(`Failed to get similar movies for ${movie.id}:`, error)
-          return []
+          console.warn(`Failed to get similar/recommended movies for ${movie.id}:`, error)
+          return { similar: [], recommended: [] }
         }
       })
 
-      const similarMovieLists = await Promise.all(similarMoviePromises)
-      const similarMovies = similarMovieLists.flat().filter((movie, index, self) =>
-        index === self.findIndex(m => m.id === movie.id)
-      )
+      const similarAndRecLists = await Promise.all(similarAndRecPromises)
 
-      console.log(`Total similar movies found: ${similarMovies.length}`)
+      const similarMovies = similarAndRecLists
+        .flatMap(r => r.similar)
+        .filter((movie, index, self) => index === self.findIndex(m => m.id === movie.id))
+
+      const recommendedMovies = similarAndRecLists
+        .flatMap(r => r.recommended)
+        .filter((movie, index, self) => index === self.findIndex(m => m.id === movie.id))
+        // Don't duplicate movies already in similar
+        .filter(movie => !similarMovies.some(s => s.id === movie.id))
+
+      console.log(`Total similar: ${similarMovies.length}, recommended: ${recommendedMovies.length}`)
 
       // PRIORITY 2: Genre-based discovery using genres from selected movies
       const selectedGenres = Array.from(new Set(
@@ -156,25 +212,68 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // PRIORITIZE: Similar movies first, then genre matches, then popular/top-rated
-      // This ensures Harry Potter → other Harry Potter movies and magic movies
-      // Tag similar movies so the ML algorithm can boost their scores
-      const similarMovieIds = new Set(similarMovies.map(m => m.id))
+      // Phase 6: User preference-based discovery pool
+      let preferenceMovies: TMDBMovie[] = []
+      if (userPreferences) {
+        try {
+          // Add preference-based genre discovery if user has favorite genres
+          // that differ from the selected movies' genres
+          if (userPreferences.favoriteGenres && userPreferences.favoriteGenres.length > 0) {
+            const prefGenres = userPreferences.favoriteGenres.filter(g => !selectedGenres.includes(g))
+            if (prefGenres.length > 0) {
+              console.log(`Discovering movies from user preference genres: ${prefGenres.join(', ')}`)
+              const prefDiscovery = await discoverMoviesServer({
+                genres: prefGenres,
+                page: 1,
+                sortBy: 'vote_count.desc'
+              })
+              preferenceMovies.push(...(prefDiscovery.results || []))
+            }
+          }
+
+          // Add language-based discovery if user prefers non-English
+          if (userPreferences.preferredLanguages && userPreferences.preferredLanguages.length > 0) {
+            const nonEnglish = userPreferences.preferredLanguages.filter(l => l !== 'en')
+            if (nonEnglish.length > 0) {
+              console.log(`Discovering movies in preferred languages: ${nonEnglish.join(', ')}`)
+              const langPromises = nonEnglish.slice(0, 2).map(lang =>
+                discoverMoviesServer({ originalLanguage: lang, page: 1, sortBy: 'vote_count.desc' })
+              )
+              const langResults = await Promise.all(langPromises)
+              for (const result of langResults) {
+                preferenceMovies.push(...(result.results || []))
+              }
+            }
+          }
+
+          if (preferenceMovies.length > 0) {
+            console.log(`Found ${preferenceMovies.length} user preference-matched movies`)
+          }
+        } catch (error) {
+          console.warn('Failed to get preference-based discoveries:', error)
+        }
+      }
+
+      // PRIORITIZE: Similar > Recommended > Genre > Preference > Popular/Top-rated
       const taggedSimilarMovies = similarMovies.map(m => ({ ...m, _isSimilar: true }))
+      const taggedRecommendedMovies = recommendedMovies.map(m => ({ ...m, _isRecommended: true }))
       const taggedGenreMovies = genreBasedMovies.map(m => ({ ...m, _isGenreMatch: true }))
+      const taggedPreferenceMovies = preferenceMovies.map(m => ({ ...m, _isPreferenceMatch: true }))
 
       candidateMovies = [
-        ...taggedSimilarMovies,     // Most relevant - TMDB identified as similar
-        ...taggedGenreMovies,       // Same genres
-        ...candidateMovies          // General popular/top-rated
+        ...taggedSimilarMovies,         // Most relevant - TMDB content-based similar (25% boost)
+        ...taggedRecommendedMovies,     // TMDB collaborative filtering (20% boost)
+        ...taggedGenreMovies,           // Same genres (15% boost)
+        ...taggedPreferenceMovies,      // User preference matches (10% boost)
+        ...candidateMovies              // General popular/top-rated (no boost)
       ]
 
       // Final deduplication and limit to reasonable size for processing
       candidateMovies = candidateMovies
         .filter((movie, index, self) => index === self.findIndex(m => m.id === movie.id))
-        .slice(0, 300) // Increased limit for better selection
+        .slice(0, 400) // Increased limit for larger candidate pool
 
-      console.log(`Final candidate pool: ${candidateMovies.length} unique movies (${similarMovies.length} similar, ${genreBasedMovies.length} genre-matched)`)
+      console.log(`Final candidate pool: ${candidateMovies.length} unique movies (${similarMovies.length} similar, ${recommendedMovies.length} recommended, ${genreBasedMovies.length} genre-matched, ${preferenceMovies.length} preference-matched)`)
 
     } catch (error) {
       console.error('Error fetching candidate movies:', error)
@@ -196,28 +295,33 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // Exclude selected movies from candidates
+    // Merge exclusion IDs: selected movies + client-sent exclusions + server-side fallback
     const selectedIds = body.selectedMovies.map(m => m.id)
+    const allExcludeIds = [...new Set([...selectedIds, ...serverExcludeIds])]
 
     // Generate ML recommendations
     const recommendationRequest: RecommendationRequest = {
       selectedMovies: body.selectedMovies,
       weights: body.weights,
-      excludeIds: selectedIds,
+      excludeIds: allExcludeIds,
       limit,
       minScore
     }
 
-    console.log(`Generating recommendations from ${candidateMovies.length} candidates...`)
-    const recommendations = await generateRecommendations(recommendationRequest, candidateMovies)
+    console.log(`Generating recommendations from ${candidateMovies.length} candidates (excluding ${allExcludeIds.length} movies)...`)
+    const recommendations = await generateRecommendations(
+      recommendationRequest,
+      candidateMovies,
+      body.movieRatings
+    )
 
     return Response.json({
       recommendations: recommendations.map(rec => ({
         movie: rec.movie,
         score: Math.round(rec.score * 1000) / 1000, // Round to 3 decimal places
         reasons: rec.reasons,
-        tmdbImageUrl: rec.movie.poster_path 
-          ? `https://image.tmdb.org/t/p/w500${rec.movie.poster_path}` 
+        tmdbImageUrl: rec.movie.poster_path
+          ? `https://image.tmdb.org/t/p/w500${rec.movie.poster_path}`
           : null
       })),
       metadata: {
@@ -236,9 +340,9 @@ export async function POST(req: NextRequest) {
 
   } catch (error) {
     console.error('ML Recommendation API Error:', error)
-    
+
     return Response.json(
-      { 
+      {
         error: 'Failed to generate recommendations',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
@@ -269,7 +373,9 @@ export async function GET() {
       candidateSource: 'Source for candidate movies: popular|top_rated|discover|mixed',
       genreFilter: 'Array of genre IDs to filter by',
       yearFilter: 'Year to filter by',
-      ratingFilter: 'Minimum rating to filter by'
+      ratingFilter: 'Minimum rating to filter by',
+      excludeMovieIds: 'Array of movie IDs to exclude (disliked/seen)',
+      movieRatings: 'Map of movieId to user rating (1-10) for weighted profiles'
     },
     example: {
       selectedMovies: [

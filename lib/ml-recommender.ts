@@ -73,7 +73,7 @@ async function getCachedMovieDetails(movieId: number): Promise<any> {
  */
 export async function extractMovieFeatures(movie: TMDBMovie, fetchDetails: boolean = true): Promise<MovieFeatures> {
   const year = new Date(movie.release_date || '2000-01-01').getFullYear()
-  const keywords = generateKeywords(movie.title, movie.overview)
+  let keywords = generateKeywords(movie.title, movie.overview)
 
   // Start with basic features from the movie object
   let genres = movie.genre_ids || []
@@ -102,6 +102,13 @@ export async function extractMovieFeatures(movie: TMDBMovie, fetchDetails: boole
           director = details.credits.crew
             .filter((c: { job: string }) => c.job === 'Director')
             .map((c: { name: string }) => c.name.toLowerCase())
+        }
+
+        // Extract TMDB curated keywords and merge with text-parsed keywords
+        if (details.keywords?.keywords?.length > 0) {
+          const tmdbKeywords = details.keywords.keywords
+            .map((k: { id: number; name: string }) => k.name.toLowerCase())
+          keywords = [...new Set([...tmdbKeywords, ...keywords])].slice(0, 30)
         }
 
         runtime = details.runtime || 120
@@ -426,34 +433,59 @@ function calculateArraySimilarity(arrayA: string[], arrayB: string[]): number {
 
 /**
  * Generate movie profile from user's selected movies
+ * @param movieRatings - Optional map of movieId to user rating (1-10) for weighted aggregation
  */
-export function generateUserProfile(selectedMovieFeatures: MovieFeatures[]): MovieFeatures {
+export function generateUserProfile(
+  selectedMovieFeatures: MovieFeatures[],
+  movieRatings?: Record<number, number>
+): MovieFeatures {
   if (selectedMovieFeatures.length === 0) {
     throw new Error('No selected movies to generate profile from')
   }
-  
-  // Aggregate genres
-  const allGenres = selectedMovieFeatures.flatMap(m => m.genres)
-  const genreCounts = allGenres.reduce((acc, genre) => {
-    acc[genre] = (acc[genre] || 0) + 1
-    return acc
-  }, {} as Record<number, number>)
-  
+
+  // Calculate rating-based weights for each movie
+  const getWeight = (movieId: number): number => {
+    if (!movieRatings || !(movieId in movieRatings)) return 1.0
+    const rating = movieRatings[movieId]
+    if (rating >= 8) return 1.5  // Highly rated: 1.5x influence
+    if (rating >= 6) return 1.0  // Average: normal influence
+    return 0.5                    // Low rated: 0.5x influence
+  }
+
+  // Aggregate genres with rating weights
+  const genreCounts: Record<number, number> = {}
+  for (const m of selectedMovieFeatures) {
+    const w = getWeight(m.id)
+    for (const genre of m.genres) {
+      genreCounts[genre] = (genreCounts[genre] || 0) + w
+    }
+  }
+
   const topGenres = Object.entries(genreCounts)
     .sort(([,a], [,b]) => b - a)
     .slice(0, 5)
     .map(([genre]) => parseInt(genre))
-  
-  // Calculate averages
-  const avgRating = selectedMovieFeatures.reduce((sum, m) => sum + m.rating, 0) / selectedMovieFeatures.length
-  const avgYear = selectedMovieFeatures.reduce((sum, m) => sum + m.year, 0) / selectedMovieFeatures.length
-  const avgPopularity = selectedMovieFeatures.reduce((sum, m) => sum + m.popularity, 0) / selectedMovieFeatures.length
-  const avgRuntime = selectedMovieFeatures.reduce((sum, m) => sum + m.runtime, 0) / selectedMovieFeatures.length
-  
-  // Aggregate keywords, directors, cast
-  const allKeywords = selectedMovieFeatures.flatMap(m => m.keywords)
-  const allDirectors = selectedMovieFeatures.flatMap(m => m.director)
-  const allCast = selectedMovieFeatures.flatMap(m => m.cast)
+
+  // Calculate weighted averages
+  const totalWeight = selectedMovieFeatures.reduce((sum, m) => sum + getWeight(m.id), 0)
+  const avgRating = selectedMovieFeatures.reduce((sum, m) => sum + m.rating * getWeight(m.id), 0) / totalWeight
+  const avgYear = selectedMovieFeatures.reduce((sum, m) => sum + m.year * getWeight(m.id), 0) / totalWeight
+  const avgPopularity = selectedMovieFeatures.reduce((sum, m) => sum + m.popularity * getWeight(m.id), 0) / totalWeight
+  const avgRuntime = selectedMovieFeatures.reduce((sum, m) => sum + m.runtime * getWeight(m.id), 0) / totalWeight
+
+  // Aggregate keywords, directors, cast (with rating weights via repetition)
+  const allKeywords: string[] = []
+  const allDirectors: string[] = []
+  const allCast: string[] = []
+  for (const m of selectedMovieFeatures) {
+    const w = getWeight(m.id)
+    const reps = Math.max(1, Math.round(w)) // 0.5→1, 1.0→1, 1.5→2
+    for (let i = 0; i < reps; i++) {
+      allKeywords.push(...m.keywords)
+      allDirectors.push(...m.director)
+      allCast.push(...m.cast)
+    }
+  }
   
   const topKeywords = getMostCommon(allKeywords, 10)
   const topDirectors = getMostCommon(allDirectors, 5)
@@ -570,7 +602,8 @@ function applyDiversitySelection(
  */
 export async function generateRecommendations(
   request: RecommendationRequest,
-  candidateMovies: TMDBMovie[]
+  candidateMovies: TMDBMovie[],
+  movieRatings?: Record<number, number>
 ): Promise<RecommendationResult[]> {
   try {
     console.log(`Starting recommendation generation for ${request.selectedMovies.length} selected movies and ${candidateMovies.length} candidates`)
@@ -593,8 +626,8 @@ export async function generateRecommendations(
       return []
     }
 
-    // Generate user profile from selected movies
-    const userProfile = generateUserProfile(selectedFeatures)
+    // Generate user profile from selected movies (with optional rating weights)
+    const userProfile = generateUserProfile(selectedFeatures, movieRatings)
     console.log(`User profile: genres=${userProfile.genres.slice(0, 5).join(',')}, cast=${userProfile.cast.slice(0, 3).join(',')}, directors=${userProfile.director.join(',')}`)
 
     // Filter out excluded movies
@@ -703,11 +736,24 @@ export async function generateRecommendations(
             finalReasons.unshift('Identified by TMDB as highly similar')
             console.log(`Boosted "${candidate.title}" from ${similarity.toFixed(3)} to ${finalScore.toFixed(3)} (TMDB similar)`)
           }
+          // BOOST: TMDB collaborative filtering recommendations
+          else if ((candidate as any)._isRecommended) {
+            finalScore = Math.min(1.0, similarity * 1.20) // 20% boost for TMDB recommendations
+            finalReasons.unshift('Recommended by TMDB collaborative filtering')
+            console.log(`Boosted "${candidate.title}" from ${similarity.toFixed(3)} to ${finalScore.toFixed(3)} (TMDB recommended)`)
+          }
           // BOOST: Genre-matched movies get smaller boost
           else if ((candidate as any)._isGenreMatch) {
             finalScore = Math.min(1.0, similarity * 1.15) // 15% boost for genre matches
             if (finalScore > similarity) {
               finalReasons.unshift('Strong genre match')
+            }
+          }
+          // BOOST: User preference-matched movies
+          else if ((candidate as any)._isPreferenceMatch) {
+            finalScore = Math.min(1.0, similarity * 1.10) // 10% boost for preference matches
+            if (finalScore > similarity) {
+              finalReasons.unshift('Matches your genre preferences')
             }
           }
 

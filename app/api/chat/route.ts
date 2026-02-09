@@ -1,4 +1,6 @@
 import { GoogleGenAI } from "@google/genai"
+import { auth } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
 
 export const maxDuration = 30
 
@@ -6,6 +8,8 @@ interface UserMovieData {
   likes: string[]
   watchlist: string[]
   seen: string[]
+  favoriteGenres?: string[]
+  preferredLanguages?: string[]
 }
 
 const SYSTEM_PROMPT = `You are "CineSensei", an expert movie critic and recommendation engine with deep knowledge of cinema history, current releases, and user preferences.
@@ -31,22 +35,99 @@ When giving recommendations:
 
 Always be helpful, entertaining, and genuinely passionate about cinema!`
 
-function buildChatPrompt(messages: any[], userData: UserMovieData): string {
-  const contextMessage =
-    userData.likes.length > 0 || userData.watchlist.length > 0 || userData.seen.length > 0
-      ? `User's Movie Profile:
-🎬 Liked Movies: ${userData.likes.slice(0, 10).join(", ") || "None yet"}
-📝 Watchlist: ${userData.watchlist.slice(0, 10).join(", ") || "Empty"}
-✅ Recently Watched: ${userData.seen.slice(0, 10).join(", ") || "None logged"}
+// TMDB genre ID to name mapping
+const GENRE_MAP: Record<number, string> = {
+  28: 'Action', 12: 'Adventure', 16: 'Animation', 35: 'Comedy', 80: 'Crime',
+  99: 'Documentary', 18: 'Drama', 10751: 'Family', 14: 'Fantasy', 36: 'History',
+  27: 'Horror', 10402: 'Music', 9648: 'Mystery', 10749: 'Romance', 878: 'Sci-Fi',
+  53: 'Thriller', 10752: 'War', 37: 'Western', 10770: 'TV Movie'
+}
 
-Use this profile to personalize recommendations and avoid suggesting movies they've already seen.`
-      : `This user is new to the platform. Help them discover great movies and build their profile! Focus on popular, well-regarded films across different genres.`
+function buildChatPrompt(messages: any[], userData: UserMovieData): string {
+  const hasData = userData.likes.length > 0 || userData.watchlist.length > 0 || userData.seen.length > 0
+
+  let contextMessage: string
+  if (hasData) {
+    const parts = [
+      `User's Movie Profile:`,
+      `🎬 Liked Movies: ${userData.likes.slice(0, 10).join(", ") || "None yet"}`,
+      `📝 Watchlist: ${userData.watchlist.slice(0, 10).join(", ") || "Empty"}`,
+      `✅ Recently Watched: ${userData.seen.slice(0, 10).join(", ") || "None logged"}`
+    ]
+
+    if (userData.favoriteGenres && userData.favoriteGenres.length > 0) {
+      parts.push(`🎭 Favorite Genres: ${userData.favoriteGenres.join(", ")}`)
+    }
+    if (userData.preferredLanguages && userData.preferredLanguages.length > 0) {
+      parts.push(`🌍 Preferred Languages: ${userData.preferredLanguages.join(", ")}`)
+    }
+
+    parts.push(`\nUse this profile to personalize recommendations and avoid suggesting movies they've already seen.`)
+    contextMessage = parts.join('\n')
+  } else {
+    contextMessage = `This user is new to the platform. Help them discover great movies and build their profile! Focus on popular, well-regarded films across different genres.`
+  }
 
   const conversationHistory = messages.map(msg =>
     `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`
   ).join('\n')
 
   return `${SYSTEM_PROMPT}\n\n${contextMessage}\n\nConversation:\n${conversationHistory}\n\nAssistant:`
+}
+
+async function fetchUserMovieData(): Promise<UserMovieData> {
+  try {
+    const session = await auth()
+
+    if (!session?.user?.id) {
+      return { likes: [], watchlist: [], seen: [] }
+    }
+
+    const userId = session.user.id
+
+    const [likes, watchlist, seen, preferences] = await Promise.all([
+      prisma.movieLike.findMany({
+        where: { userId },
+        select: { movieTitle: true },
+        orderBy: { likedAt: 'desc' },
+        take: 20
+      }),
+      prisma.watchlistItem.findMany({
+        where: { userId },
+        select: { movieTitle: true },
+        orderBy: { addedAt: 'desc' },
+        take: 20
+      }),
+      prisma.seenMovie.findMany({
+        where: { userId },
+        select: { movieTitle: true },
+        orderBy: { watchedAt: 'desc' },
+        take: 20
+      }),
+      prisma.userPreference.findUnique({
+        where: { userId },
+        select: { favoriteGenres: true, preferredLanguages: true }
+      })
+    ])
+
+    const result: UserMovieData = {
+      likes: likes.map(l => l.movieTitle),
+      watchlist: watchlist.map(w => w.movieTitle),
+      seen: seen.map(s => s.movieTitle)
+    }
+
+    if (preferences?.favoriteGenres && preferences.favoriteGenres.length > 0) {
+      result.favoriteGenres = preferences.favoriteGenres.map(id => GENRE_MAP[id] || `Genre ${id}`)
+    }
+    if (preferences?.preferredLanguages && preferences.preferredLanguages.length > 0) {
+      result.preferredLanguages = preferences.preferredLanguages
+    }
+
+    return result
+  } catch (error) {
+    console.warn('Failed to fetch user movie data for chat:', error)
+    return { likes: [], watchlist: [], seen: [] }
+  }
 }
 
 export async function POST(req: Request) {
@@ -64,8 +145,8 @@ export async function POST(req: Request) {
     // Initialize Google GenAI client
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
 
-    // No user authentication - use empty movie profile
-    const userMovieData = { likes: [], watchlist: [], seen: [] }
+    // Fetch real user movie data (falls back to empty arrays if not authenticated)
+    const userMovieData = await fetchUserMovieData()
 
     // Build the conversation prompt
     const prompt = buildChatPrompt(messages, userMovieData)
