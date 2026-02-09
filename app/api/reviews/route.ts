@@ -1,24 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
 
-// GET: Fetch movie reviews
+// GET: Fetch movie reviews (public by movieId, auth for user's own reviews)
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
-    const userId = searchParams.get('userId')
     const movieId = searchParams.get('movieId')
+    const forUser = searchParams.get('forUser')
     const limit = searchParams.get('limit')
     const offset = searchParams.get('offset')
-
-    if (!userId && !movieId) {
-      return NextResponse.json(
-        { error: 'Either userId or movieId is required' },
-        { status: 400 }
-      )
-    }
 
     const queryOptions: any = {
       orderBy: { createdAt: 'desc' }
@@ -32,43 +26,56 @@ export async function GET(req: NextRequest) {
       queryOptions.skip = Number(offset)
     }
 
-    if (userId && movieId) {
-      // Get specific user's review for a movie
-      const review = await prisma.movieReview.findFirst({
-        where: {
-          userId,
-          movieId: Number(movieId)
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              avatar: true
+    if (forUser) {
+      // Auth required for user-specific reviews
+      const session = await auth()
+      if (!session?.user?.id) {
+        return NextResponse.json(
+          { error: 'Unauthorized' },
+          { status: 401 }
+        )
+      }
+
+      const userId = session.user.id
+
+      if (movieId) {
+        // Get current user's review for a specific movie
+        const review = await prisma.movieReview.findFirst({
+          where: {
+            userId,
+            movieId: Number(movieId)
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                image: true
+              }
             }
           }
-        }
-      })
+        })
 
-      return NextResponse.json({
-        success: true,
-        review
-      })
-    } else if (userId) {
-      // Get all reviews by user
-      const reviews = await prisma.movieReview.findMany({
-        ...queryOptions,
-        where: { userId }
-      })
+        return NextResponse.json({
+          success: true,
+          review
+        })
+      } else {
+        // Get all reviews by current user
+        const reviews = await prisma.movieReview.findMany({
+          ...queryOptions,
+          where: { userId }
+        })
 
-      return NextResponse.json({
-        success: true,
-        reviews,
-        count: reviews.length
-      })
-    } else {
-      // Get all reviews for a movie
+        return NextResponse.json({
+          success: true,
+          reviews,
+          count: reviews.length
+        })
+      }
+    } else if (movieId) {
+      // Public: Get all reviews for a movie
       const reviews = await prisma.movieReview.findMany({
         ...queryOptions,
         where: { movieId: Number(movieId) },
@@ -78,7 +85,7 @@ export async function GET(req: NextRequest) {
               id: true,
               name: true,
               email: true,
-              avatar: true
+              image: true
             }
           }
         }
@@ -89,6 +96,11 @@ export async function GET(req: NextRequest) {
         reviews,
         count: reviews.length
       })
+    } else {
+      return NextResponse.json(
+        { error: 'movieId or forUser parameter is required' },
+        { status: 400 }
+      )
     }
   } catch (error) {
     console.error('Error fetching reviews:', error)
@@ -102,12 +114,21 @@ export async function GET(req: NextRequest) {
 // POST: Create a new review
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const { userId, movieId, movieTitle, content, rating } = body
-
-    if (!userId || !movieId || !movieTitle || !content) {
+    const session = await auth()
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { error: 'userId, movieId, movieTitle, and content are required' },
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const userId = session.user.id
+    const body = await req.json()
+    const { movieId, movieTitle, content, rating } = body
+
+    if (!movieId || !movieTitle || !content) {
+      return NextResponse.json(
+        { error: 'movieId, movieTitle, and content are required' },
         { status: 400 }
       )
     }
@@ -141,7 +162,7 @@ export async function POST(req: NextRequest) {
             id: true,
             name: true,
             email: true,
-            avatar: true
+            image: true
           }
         }
       }
@@ -161,9 +182,18 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// PUT: Update existing review
+// PUT: Update existing review (ownership check)
 export async function PUT(req: NextRequest) {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const userId = session.user.id
     const body = await req.json()
     const { reviewId, content, rating } = body
 
@@ -171,6 +201,25 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json(
         { error: 'reviewId and content are required' },
         { status: 400 }
+      )
+    }
+
+    // Verify ownership
+    const existing = await prisma.movieReview.findUnique({
+      where: { id: reviewId }
+    })
+
+    if (!existing) {
+      return NextResponse.json(
+        { error: 'Review not found' },
+        { status: 404 }
+      )
+    }
+
+    if (existing.userId !== userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized: You can only edit your own reviews' },
+        { status: 403 }
       )
     }
 
@@ -187,7 +236,7 @@ export async function PUT(req: NextRequest) {
             id: true,
             name: true,
             email: true,
-            avatar: true
+            image: true
           }
         }
       }
@@ -207,9 +256,18 @@ export async function PUT(req: NextRequest) {
   }
 }
 
-// DELETE: Remove review
+// DELETE: Remove review (ownership check)
 export async function DELETE(req: NextRequest) {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const userId = session.user.id
     const { searchParams } = new URL(req.url)
     const reviewId = searchParams.get('reviewId')
 
@@ -217,6 +275,25 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json(
         { error: 'reviewId is required' },
         { status: 400 }
+      )
+    }
+
+    // Verify ownership
+    const existing = await prisma.movieReview.findUnique({
+      where: { id: reviewId }
+    })
+
+    if (!existing) {
+      return NextResponse.json(
+        { error: 'Review not found' },
+        { status: 404 }
+      )
+    }
+
+    if (existing.userId !== userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized: You can only delete your own reviews' },
+        { status: 403 }
       )
     }
 

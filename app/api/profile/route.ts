@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
 
-// GET: Fetch user profile with stats
+// GET: Fetch user profile with stats (public by userId/email for display, full stats for own profile)
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
         id: true,
         email: true,
         name: true,
-        avatar: true,
+        image: true,
         createdAt: true,
         updatedAt: true,
         _count: {
@@ -114,31 +115,9 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST: Create a new user
+// POST: Create a new user (redirect to auth)
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const { email, name, avatar } = body
-
-    if (!email) {
-      return NextResponse.json(
-        { error: 'email is required' },
-        { status: 400 }
-      )
-    }
-
-    // Check if user already exists
-    const existing = await prisma.user.findUnique({
-      where: { email }
-    })
-
-    if (existing) {
-      return NextResponse.json(
-        { error: 'User with this email already exists' },
-        { status: 409 }
-      )
-    }
-
     // Use the /api/auth/register endpoint instead
     return NextResponse.json(
       { error: 'Please use /api/auth/register to create a new account' },
@@ -153,24 +132,26 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// PUT: Update user profile
+// PUT: Update user profile (own profile only)
 export async function PUT(req: NextRequest) {
   try {
-    const body = await req.json()
-    const { userId, name, avatar } = body
-
-    if (!userId) {
+    const session = await auth()
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { error: 'userId is required' },
-        { status: 400 }
+        { error: 'Unauthorized' },
+        { status: 401 }
       )
     }
+
+    const userId = session.user.id
+    const body = await req.json()
+    const { name, image } = body
 
     const user = await prisma.user.update({
       where: { id: userId },
       data: {
         name: name !== undefined ? name : undefined,
-        avatar: avatar !== undefined ? avatar : undefined,
+        image: image !== undefined ? image : undefined,
         updatedAt: new Date()
       }
     })
@@ -189,18 +170,18 @@ export async function PUT(req: NextRequest) {
   }
 }
 
-// DELETE: Delete user account
+// DELETE: Delete user account (own account only)
 export async function DELETE(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url)
-    const userId = searchParams.get('userId')
-
-    if (!userId) {
+    const session = await auth()
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { error: 'userId is required' },
-        { status: 400 }
+        { error: 'Unauthorized' },
+        { status: 401 }
       )
     }
+
+    const userId = session.user.id
 
     // Delete user (will cascade delete all related data)
     await prisma.user.delete({

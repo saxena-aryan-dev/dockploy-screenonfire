@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 // Force dynamic rendering
@@ -7,15 +8,15 @@ export const dynamic = 'force-dynamic'
 // GET: Fetch user's seen/watched movies
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url)
-    const userId = searchParams.get('userId')
-
-    if (!userId) {
+    const session = await auth()
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { error: 'userId is required' },
-        { status: 400 }
+        { error: 'Unauthorized' },
+        { status: 401 }
       )
     }
+
+    const userId = session.user.id
 
     const seenMovies = await prisma.seenMovie.findMany({
       where: { userId },
@@ -39,12 +40,21 @@ export async function GET(req: NextRequest) {
 // POST: Mark movie as seen/watched
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const { userId, movieId, movieTitle } = body
-
-    if (!userId || !movieId || !movieTitle) {
+    const session = await auth()
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { error: 'userId, movieId, and movieTitle are required' },
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const userId = session.user.id
+    const body = await req.json()
+    const { movieId, movieTitle } = body
+
+    if (!movieId || !movieTitle) {
+      return NextResponse.json(
+        { error: 'movieId and movieTitle are required' },
         { status: 400 }
       )
     }
@@ -91,13 +101,21 @@ export async function POST(req: NextRequest) {
 // DELETE: Remove movie from seen list
 export async function DELETE(req: NextRequest) {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const userId = session.user.id
     const { searchParams } = new URL(req.url)
-    const userId = searchParams.get('userId')
     const movieId = searchParams.get('movieId')
 
-    if (!userId || !movieId) {
+    if (!movieId) {
       return NextResponse.json(
-        { error: 'userId and movieId are required' },
+        { error: 'movieId is required' },
         { status: 400 }
       )
     }

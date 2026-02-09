@@ -1,52 +1,59 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
 
-// GET: Fetch movie ratings (by user or by movie)
+// GET: Fetch movie ratings (public by movieId, auth required for user ratings)
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
-    const userId = searchParams.get('userId')
     const movieId = searchParams.get('movieId')
+    const forUser = searchParams.get('forUser') // flag to get current user's rating
 
-    if (!userId && !movieId) {
-      return NextResponse.json(
-        { error: 'Either userId or movieId is required' },
-        { status: 400 }
-      )
-    }
+    if (forUser) {
+      // Auth required for user-specific ratings
+      const session = await auth()
+      if (!session?.user?.id) {
+        return NextResponse.json(
+          { error: 'Unauthorized' },
+          { status: 401 }
+        )
+      }
 
-    if (userId && movieId) {
-      // Get specific user's rating for a movie
-      const rating = await prisma.movieRating.findUnique({
-        where: {
-          userId_movieId: {
-            userId,
-            movieId: Number(movieId)
+      const userId = session.user.id
+
+      if (movieId) {
+        // Get current user's rating for a specific movie
+        const rating = await prisma.movieRating.findUnique({
+          where: {
+            userId_movieId: {
+              userId,
+              movieId: Number(movieId)
+            }
           }
-        }
-      })
+        })
 
-      return NextResponse.json({
-        success: true,
-        rating
-      })
-    } else if (userId) {
-      // Get all ratings by user
-      const ratings = await prisma.movieRating.findMany({
-        where: { userId },
-        orderBy: { ratedAt: 'desc' }
-      })
+        return NextResponse.json({
+          success: true,
+          rating
+        })
+      } else {
+        // Get all ratings by current user
+        const ratings = await prisma.movieRating.findMany({
+          where: { userId },
+          orderBy: { ratedAt: 'desc' }
+        })
 
-      return NextResponse.json({
-        success: true,
-        ratings,
-        count: ratings.length
-      })
-    } else {
-      // Get all ratings for a movie
+        return NextResponse.json({
+          success: true,
+          ratings,
+          count: ratings.length
+        })
+      }
+    } else if (movieId) {
+      // Public: Get all ratings for a movie (aggregate)
       const ratings = await prisma.movieRating.findMany({
         where: { movieId: Number(movieId) },
         orderBy: { ratedAt: 'desc' }
@@ -63,6 +70,11 @@ export async function GET(req: NextRequest) {
         count: ratings.length,
         averageRating: Math.round(avgRating * 10) / 10
       })
+    } else {
+      return NextResponse.json(
+        { error: 'movieId or forUser parameter is required' },
+        { status: 400 }
+      )
     }
   } catch (error) {
     console.error('Error fetching ratings:', error)
@@ -76,12 +88,21 @@ export async function GET(req: NextRequest) {
 // POST: Create or update a movie rating
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const { userId, movieId, movieTitle, rating } = body
-
-    if (!userId || !movieId || !movieTitle || rating === undefined) {
+    const session = await auth()
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { error: 'userId, movieId, movieTitle, and rating are required' },
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const userId = session.user.id
+    const body = await req.json()
+    const { movieId, movieTitle, rating } = body
+
+    if (!movieId || !movieTitle || rating === undefined) {
+      return NextResponse.json(
+        { error: 'movieId, movieTitle, and rating are required' },
         { status: 400 }
       )
     }
@@ -132,12 +153,21 @@ export async function POST(req: NextRequest) {
 // PUT: Update existing rating
 export async function PUT(req: NextRequest) {
   try {
-    const body = await req.json()
-    const { userId, movieId, rating } = body
-
-    if (!userId || !movieId || rating === undefined) {
+    const session = await auth()
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { error: 'userId, movieId, and rating are required' },
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const userId = session.user.id
+    const body = await req.json()
+    const { movieId, rating } = body
+
+    if (!movieId || rating === undefined) {
+      return NextResponse.json(
+        { error: 'movieId and rating are required' },
         { status: 400 }
       )
     }
@@ -181,13 +211,21 @@ export async function PUT(req: NextRequest) {
 // DELETE: Remove rating
 export async function DELETE(req: NextRequest) {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const userId = session.user.id
     const { searchParams } = new URL(req.url)
-    const userId = searchParams.get('userId')
     const movieId = searchParams.get('movieId')
 
-    if (!userId || !movieId) {
+    if (!movieId) {
       return NextResponse.json(
-        { error: 'userId and movieId are required' },
+        { error: 'movieId is required' },
         { status: 400 }
       )
     }

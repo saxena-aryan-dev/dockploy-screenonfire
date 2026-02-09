@@ -13,7 +13,7 @@ interface MovieCardProps {
   movie: TMDBMovie
   isInWatchlist: boolean
   onAddToWatchlist?: (movie: TMDBMovie) => void
-  onRemoveFromWatchlist?: (movieId: string) => void
+  onRemoveFromWatchlist?: (movieId: number) => void
   isLiked?: boolean
   isDisliked?: boolean
   onLike?: (movie: TMDBMovie) => void
@@ -31,9 +31,9 @@ const MovieCard = memo(function MovieCard({
   const handleWatchlistToggle = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
     if (isInWatchlist) {
-      onRemoveFromWatchlist(movie.id.toString())
+      onRemoveFromWatchlist?.(movie.id)
     } else {
-      onAddToWatchlist(movie)
+      onAddToWatchlist?.(movie)
     }
   }, [isInWatchlist, onRemoveFromWatchlist, onAddToWatchlist, movie])
 

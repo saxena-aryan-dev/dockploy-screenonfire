@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
 
-// GET: Fetch reactions for a discussion
+// GET: Fetch reactions for a discussion (public)
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
           select: {
             id: true,
             name: true,
-            avatar: true
+            image: true
           }
         }
       },
@@ -44,7 +45,7 @@ export async function GET(req: NextRequest) {
       acc[reaction.type].users.push({
         id: reaction.user.id,
         name: reaction.user.name,
-        avatar: reaction.user.image
+        image: reaction.user.image
       })
       return acc
     }, {})
@@ -67,12 +68,21 @@ export async function GET(req: NextRequest) {
 // POST: Add a reaction to a discussion
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const { userId, discussionId, type } = body
-
-    if (!userId || !discussionId || !type) {
+    const session = await auth()
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { error: 'userId, discussionId, and type are required' },
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const userId = session.user.id
+    const body = await req.json()
+    const { discussionId, type } = body
+
+    if (!discussionId || !type) {
+      return NextResponse.json(
+        { error: 'discussionId and type are required' },
         { status: 400 }
       )
     }
@@ -115,7 +125,7 @@ export async function POST(req: NextRequest) {
           select: {
             id: true,
             name: true,
-            avatar: true
+            image: true
           }
         }
       }
@@ -138,14 +148,22 @@ export async function POST(req: NextRequest) {
 // DELETE: Remove a reaction
 export async function DELETE(req: NextRequest) {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const userId = session.user.id
     const { searchParams } = new URL(req.url)
-    const userId = searchParams.get('userId')
     const discussionId = searchParams.get('discussionId')
     const type = searchParams.get('type')
 
-    if (!userId || !discussionId || !type) {
+    if (!discussionId || !type) {
       return NextResponse.json(
-        { error: 'userId, discussionId, and type are required' },
+        { error: 'discussionId and type are required' },
         { status: 400 }
       )
     }

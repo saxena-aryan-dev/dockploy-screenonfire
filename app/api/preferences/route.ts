@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 // Force dynamic rendering
@@ -7,15 +8,15 @@ export const dynamic = 'force-dynamic'
 // GET: Fetch user preferences
 export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url)
-    const userId = searchParams.get('userId')
-
-    if (!userId) {
+    const session = await auth()
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { error: 'userId is required' },
-        { status: 400 }
+        { error: 'Unauthorized' },
+        { status: 401 }
       )
     }
+
+    const userId = session.user.id
 
     const preferences = await prisma.userPreference.findUnique({
       where: { userId }
@@ -51,15 +52,17 @@ export async function GET(req: NextRequest) {
 // POST: Create or update user preferences
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const { userId, favoriteGenres, preferredLanguages, emailNotifications, theme } = body
-
-    if (!userId) {
+    const session = await auth()
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { error: 'userId is required' },
-        { status: 400 }
+        { error: 'Unauthorized' },
+        { status: 401 }
       )
     }
+
+    const userId = session.user.id
+    const body = await req.json()
+    const { favoriteGenres, preferredLanguages, emailNotifications, theme } = body
 
     // Upsert preferences (create or update)
     const preferences = await prisma.userPreference.upsert({
@@ -97,15 +100,17 @@ export async function POST(req: NextRequest) {
 // PUT: Update specific preference fields
 export async function PUT(req: NextRequest) {
   try {
-    const body = await req.json()
-    const { userId, ...updates } = body
-
-    if (!userId) {
+    const session = await auth()
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { error: 'userId is required' },
-        { status: 400 }
+        { error: 'Unauthorized' },
+        { status: 401 }
       )
     }
+
+    const userId = session.user.id
+    const body = await req.json()
+    const { favoriteGenres, preferredLanguages, emailNotifications, theme } = body
 
     // Check if preferences exist
     const existing = await prisma.userPreference.findUnique({
@@ -119,12 +124,15 @@ export async function PUT(req: NextRequest) {
       )
     }
 
+    const updateData: any = { updatedAt: new Date() }
+    if (favoriteGenres !== undefined) updateData.favoriteGenres = favoriteGenres
+    if (preferredLanguages !== undefined) updateData.preferredLanguages = preferredLanguages
+    if (emailNotifications !== undefined) updateData.emailNotifications = emailNotifications
+    if (theme !== undefined) updateData.theme = theme
+
     const preferences = await prisma.userPreference.update({
       where: { userId },
-      data: {
-        ...updates,
-        updatedAt: new Date()
-      }
+      data: updateData
     })
 
     return NextResponse.json({
@@ -144,15 +152,15 @@ export async function PUT(req: NextRequest) {
 // DELETE: Delete user preferences
 export async function DELETE(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url)
-    const userId = searchParams.get('userId')
-
-    if (!userId) {
+    const session = await auth()
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { error: 'userId is required' },
-        { status: 400 }
+        { error: 'Unauthorized' },
+        { status: 401 }
       )
     }
+
+    const userId = session.user.id
 
     await prisma.userPreference.delete({
       where: { userId }

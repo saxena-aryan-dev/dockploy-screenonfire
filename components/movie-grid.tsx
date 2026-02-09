@@ -11,9 +11,9 @@ import type { TMDBMovie } from "@/lib/tmdb-supabase"
 interface MovieGridProps {
   movies: TMDBMovie[]
   isLoading: boolean
-  isInWatchlist?: (movieId: string) => boolean
+  isInWatchlist?: (movieId: number) => boolean
   onAddToWatchlist?: (movie: TMDBMovie) => void
-  onRemoveFromWatchlist?: (movieId: string) => void
+  onRemoveFromWatchlist?: (movieId: number) => void
   isLiked?: (movieId: number) => boolean
   isDisliked?: (movieId: number) => boolean
   onLike?: (movie: TMDBMovie) => void
@@ -119,7 +119,7 @@ const MovieGrid = memo(function MovieGrid({
         >
           <MovieCard
             movie={movie}
-            isInWatchlist={isInWatchlist ? isInWatchlist(movie.id.toString()) : false}
+            isInWatchlist={isInWatchlist ? isInWatchlist(movie.id) : false}
             onAddToWatchlist={onAddToWatchlist}
             onRemoveFromWatchlist={onRemoveFromWatchlist}
             isLiked={isLiked ? isLiked(movie.id) : false}

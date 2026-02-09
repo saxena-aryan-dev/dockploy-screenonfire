@@ -11,8 +11,9 @@ import { getYear } from "@/lib/date"
 interface PopularMoviesCarouselProps {
   movies: TMDBMovie[]
   title?: string
-  isInWatchlist: (movieId: string) => boolean
+  isInWatchlist: (movieId: number) => boolean
   onAddToWatchlist: (movie: TMDBMovie) => void
+  onRemoveFromWatchlist?: (movieId: number) => void
   onMarkAsWatched?: (movieId: string) => void
   watchedMovies?: Set<string>
 }
@@ -22,6 +23,7 @@ export function PopularMoviesCarousel({
   title = "Most popular movies this week",
   isInWatchlist,
   onAddToWatchlist,
+  onRemoveFromWatchlist,
   onMarkAsWatched,
   watchedMovies = new Set(),
 }: PopularMoviesCarouselProps) {
@@ -34,9 +36,13 @@ export function PopularMoviesCarousel({
     }
   }
 
-  const handleAddToWatchlist = (e: React.MouseEvent, movie: TMDBMovie) => {
+  const handleWatchlistToggle = (e: React.MouseEvent, movie: TMDBMovie) => {
     e.stopPropagation()
-    onAddToWatchlist(movie)
+    if (isInWatchlist(movie.id)) {
+      onRemoveFromWatchlist?.(movie.id)
+    } else {
+      onAddToWatchlist(movie)
+    }
   }
 
   const getRatingColor = (rating: number) => {
@@ -58,7 +64,7 @@ export function PopularMoviesCarousel({
       <div className="flex gap-6 overflow-x-auto pb-4 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         {movies.slice(0, 10).map((movie, index) => {
           const isWatched = watchedMovies.has(movie.id.toString())
-          const inWatchlist = isInWatchlist(movie.id.toString())
+          const inWatchlist = isInWatchlist(movie.id)
           const rating = movie.vote_average || 0
           const voteCount = movie.vote_count || 0
 
@@ -82,7 +88,7 @@ export function PopularMoviesCarousel({
                   {/* Heart Button (Add to Watchlist) */}
                   <Button
                     size="icon"
-                    onClick={(e) => handleAddToWatchlist(e, movie)}
+                    onClick={(e) => handleWatchlistToggle(e, movie)}
                     className={`absolute top-3 left-3 w-10 h-10 rounded-full flex items-center justify-center transition-all ${
                       inWatchlist
                         ? "bg-blue-500 text-white hover:bg-blue-400"

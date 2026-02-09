@@ -795,13 +795,13 @@ export default function CinematicLanding() {
                             size="lg"
                             variant="outline"
                             className={`border-2 font-semibold transition-all duration-300 hover:scale-105 shadow-lg ${
-                              isInWatchlist(featuredMovie.id.toString())
+                              isInWatchlist(featuredMovie.id)
                                 ? "border-blue-500 text-blue-400 bg-blue-500/10 hover:bg-blue-500/20"
                                 : "border-white/40 text-white hover:border-white hover:bg-white/10"
                             }`}
                             onClick={() => {
-                              if (isInWatchlist(featuredMovie.id.toString())) {
-                                removeFromWatchlist(featuredMovie.id.toString())
+                              if (isInWatchlist(featuredMovie.id)) {
+                                removeFromWatchlist(featuredMovie.id)
                               } else {
                                 addToWatchlist(featuredMovie)
                               }
@@ -809,11 +809,11 @@ export default function CinematicLanding() {
                           >
                             <Heart
                               className={`h-5 w-5 mr-2 transition-all duration-300 ${
-                                isInWatchlist(featuredMovie.id.toString()) ? "fill-current text-blue-400 scale-110" : ""
+                                isInWatchlist(featuredMovie.id) ? "fill-current text-blue-400 scale-110" : ""
                               }`}
                             />
-                            <span className="hidden sm:inline">{isInWatchlist(featuredMovie.id.toString()) ? "In your Watchlist" : "Add to Watchlist"}</span>
-                            <span className="sm:hidden">{isInWatchlist(featuredMovie.id.toString()) ? "Added" : "Add"}</span>
+                            <span className="hidden sm:inline">{isInWatchlist(featuredMovie.id) ? "In your Watchlist" : "Add to Watchlist"}</span>
+                            <span className="sm:hidden">{isInWatchlist(featuredMovie.id) ? "Added" : "Add"}</span>
                           </Button>
                           <Button
                             size="lg"

@@ -413,7 +413,7 @@ export default function MovieRecommender() {
     }
 
     // Check if already in watchlist locally
-    if (isInWatchlist(movie.id.toString())) {
+    if (isInWatchlist(movie.id)) {
       return
     }
 
@@ -469,15 +469,17 @@ export default function MovieRecommender() {
     }
   }, [authUser])
 
-  const removeFromWatchlist = useCallback(async (movieId: string) => {
+  const removeFromWatchlist = useCallback(async (movieId: number) => {
     if (!authUser) return
+
+    const movieIdStr = movieId.toString()
 
     // Optimistic update - remove immediately from UI
     const previousWatchlist = watchlist
-    setWatchlist((prev) => prev.filter((item) => item.movie_id !== movieId))
+    setWatchlist((prev) => prev.filter((item) => item.movie_id !== movieIdStr))
 
     try {
-      const { error } = await supabase.from("watchlist").delete().eq("user_id", authUser.id).eq("movie_id", movieId)
+      const { error } = await supabase.from("watchlist").delete().eq("user_id", authUser.id).eq("movie_id", movieIdStr)
 
       if (error) {
         // Revert on error
@@ -497,8 +499,8 @@ export default function MovieRecommender() {
     [watchlist]
   )
 
-  const isInWatchlist = useCallback((movieId: string) => {
-    return watchlistMovieIds.has(movieId)
+  const isInWatchlist = useCallback((movieId: number) => {
+    return watchlistMovieIds.has(movieId.toString())
   }, [watchlistMovieIds])
 
 
@@ -774,13 +776,13 @@ export default function MovieRecommender() {
                           size="lg"
                           variant="outline"
                           className={`border-2 font-semibold transition-all duration-300 hover:scale-105 shadow-lg ${
-                            isInWatchlist(featuredMovie.id.toString())
+                            isInWatchlist(featuredMovie.id)
                               ? "border-blue-500 text-blue-400 bg-blue-500/10 hover:bg-blue-500/20"
                               : "border-white/40 text-white hover:border-white hover:bg-white/10"
                           }`}
                           onClick={() => {
-                            if (isInWatchlist(featuredMovie.id.toString())) {
-                              removeFromWatchlist(featuredMovie.id.toString())
+                            if (isInWatchlist(featuredMovie.id)) {
+                              removeFromWatchlist(featuredMovie.id)
                             } else {
                               addToWatchlist(featuredMovie)
                             }
@@ -788,11 +790,11 @@ export default function MovieRecommender() {
                         >
                           <Heart
                             className={`h-5 w-5 mr-2 transition-all duration-300 ${
-                              isInWatchlist(featuredMovie.id.toString()) ? "fill-current text-blue-400 scale-110" : ""
+                              isInWatchlist(featuredMovie.id) ? "fill-current text-blue-400 scale-110" : ""
                             }`}
                           />
-                          <span className="hidden sm:inline">{isInWatchlist(featuredMovie.id.toString()) ? "In your Watchlist" : "Add to Watchlist"}</span>
-                          <span className="sm:hidden">{isInWatchlist(featuredMovie.id.toString()) ? "Added" : "Add"}</span>
+                          <span className="hidden sm:inline">{isInWatchlist(featuredMovie.id) ? "In your Watchlist" : "Add to Watchlist"}</span>
+                          <span className="sm:hidden">{isInWatchlist(featuredMovie.id) ? "Added" : "Add"}</span>
                         </Button>
                         <Button
                           size="lg"
@@ -990,6 +992,7 @@ export default function MovieRecommender() {
               title="Most popular movies this week"
               isInWatchlist={isInWatchlist}
               onAddToWatchlist={addToWatchlist}
+              onRemoveFromWatchlist={removeFromWatchlist}
               onMarkAsWatched={handleMarkAsWatched}
               watchedMovies={watchedMovies}
             />
@@ -1004,6 +1007,7 @@ export default function MovieRecommender() {
               title="Top rated movies of all time"
               isInWatchlist={isInWatchlist}
               onAddToWatchlist={addToWatchlist}
+              onRemoveFromWatchlist={removeFromWatchlist}
               onMarkAsWatched={handleMarkAsWatched}
               watchedMovies={watchedMovies}
             />

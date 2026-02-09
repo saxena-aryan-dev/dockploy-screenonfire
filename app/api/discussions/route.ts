@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
 
-// GET: Fetch discussions for a movie or a specific discussion thread
+// GET: Fetch discussions for a movie or a specific discussion thread (public)
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest) {
               id: true,
               name: true,
               email: true,
-              avatar: true
+              image: true
             }
           },
           reactions: {
@@ -42,7 +43,7 @@ export async function GET(req: NextRequest) {
                   id: true,
                   name: true,
                   email: true,
-                  avatar: true
+                  image: true
                 }
               },
               reactions: {
@@ -78,7 +79,7 @@ export async function GET(req: NextRequest) {
               id: true,
               name: true,
               email: true,
-              avatar: true
+              image: true
             }
           },
           reactions: {
@@ -115,7 +116,7 @@ export async function GET(req: NextRequest) {
               id: true,
               name: true,
               email: true,
-              avatar: true
+              image: true
             }
           },
           reactions: true,
@@ -151,12 +152,21 @@ export async function GET(req: NextRequest) {
 // POST: Create a new discussion or reply
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const { userId, movieId, content, parentId } = body
-
-    if (!userId || !content) {
+    const session = await auth()
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { error: 'userId and content are required' },
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const userId = session.user.id
+    const body = await req.json()
+    const { movieId, content, parentId } = body
+
+    if (!content) {
+      return NextResponse.json(
+        { error: 'content is required' },
         { status: 400 }
       )
     }
@@ -200,7 +210,7 @@ export async function POST(req: NextRequest) {
             id: true,
             name: true,
             email: true,
-            avatar: true
+            image: true
           }
         },
         reactions: true
@@ -221,15 +231,24 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// PUT: Update existing discussion
+// PUT: Update existing discussion (ownership check via session)
 export async function PUT(req: NextRequest) {
   try {
-    const body = await req.json()
-    const { discussionId, content, userId } = body
-
-    if (!discussionId || !content || !userId) {
+    const session = await auth()
+    if (!session?.user?.id) {
       return NextResponse.json(
-        { error: 'discussionId, content, and userId are required' },
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const userId = session.user.id
+    const body = await req.json()
+    const { discussionId, content } = body
+
+    if (!discussionId || !content) {
+      return NextResponse.json(
+        { error: 'discussionId and content are required' },
         { status: 400 }
       )
     }
@@ -265,7 +284,7 @@ export async function PUT(req: NextRequest) {
             id: true,
             name: true,
             email: true,
-            avatar: true
+            image: true
           }
         },
         reactions: true
@@ -286,16 +305,24 @@ export async function PUT(req: NextRequest) {
   }
 }
 
-// DELETE: Remove discussion
+// DELETE: Remove discussion (ownership check via session)
 export async function DELETE(req: NextRequest) {
   try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const userId = session.user.id
     const { searchParams } = new URL(req.url)
     const discussionId = searchParams.get('discussionId')
-    const userId = searchParams.get('userId')
 
-    if (!discussionId || !userId) {
+    if (!discussionId) {
       return NextResponse.json(
-        { error: 'discussionId and userId are required' },
+        { error: 'discussionId is required' },
         { status: 400 }
       )
     }

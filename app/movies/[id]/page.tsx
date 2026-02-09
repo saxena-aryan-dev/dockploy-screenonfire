@@ -411,14 +411,14 @@ export default function MovieDetailsPage() {
                 {/* Watchlist Button */}
                 <button
                   onClick={() => {
-                    if (movieActions.isInWatchlist(movieId)) {
-                      movieActions.removeFromWatchlist(movieId)
+                    if (movieActions.isInWatchlist(Number(movieId))) {
+                      movieActions.removeFromWatchlist(Number(movieId))
                     } else {
                       movie && movieActions.addToWatchlist(movie as unknown as TMDBMovie)
                     }
                   }}
                   className={`group relative px-4 sm:px-6 lg:px-8 py-2 sm:py-3 lg:py-4 font-bold text-sm sm:text-base lg:text-lg rounded-xl shadow-2xl transform hover:scale-105 transition-all duration-300 border ${
-                    movieActions.isInWatchlist(movieId)
+                    movieActions.isInWatchlist(Number(movieId))
                       ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white border-blue-400/30 hover:shadow-blue-500/20'
                       : 'bg-gradient-to-r from-gray-800 to-gray-900 text-white border-gray-700/50 hover:shadow-gray-500/20'
                   }`}
@@ -426,9 +426,9 @@ export default function MovieDetailsPage() {
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   <div className="relative flex items-center gap-2">
-                    <Heart className={`h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 transition-all ${movieActions.isInWatchlist(movieId) ? 'fill-current' : ''}`} />
-                    <span className="hidden sm:inline">{movieActions.isInWatchlist(movieId) ? "In your Watchlist" : "Add to Watchlist"}</span>
-                    <span className="sm:hidden">{movieActions.isInWatchlist(movieId) ? "Added" : "Add"}</span>
+                    <Heart className={`h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 transition-all ${movieActions.isInWatchlist(Number(movieId)) ? 'fill-current' : ''}`} />
+                    <span className="hidden sm:inline">{movieActions.isInWatchlist(Number(movieId)) ? "In your Watchlist" : "Add to Watchlist"}</span>
+                    <span className="sm:hidden">{movieActions.isInWatchlist(Number(movieId)) ? "Added" : "Add"}</span>
                   </div>
                 </button>
 

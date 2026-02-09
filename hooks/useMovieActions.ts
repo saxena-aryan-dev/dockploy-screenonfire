@@ -122,13 +122,11 @@ export function useMovieActions({
     }
   }, [userId, onAuthRequired])
 
-  const removeFromWatchlist = useCallback(async (movieIdStr: string) => {
+  const removeFromWatchlist = useCallback(async (movieId: number) => {
     if (!userId) {
       onAuthRequired?.()
       return
     }
-
-    const movieId = parseInt(movieIdStr)
 
     // Optimistic update
     setState(prev => {
@@ -353,11 +351,11 @@ export function useMovieActions({
   }, [userId, onAuthRequired, state.dislikes])
 
   return {
-    // State checkers (accept both string and number since callers use .toString())
-    isInWatchlist: (movieId: number | string) => state.watchlist.has(typeof movieId === 'string' ? parseInt(movieId) : movieId),
-    isLiked: (movieId: number | string) => state.likes.has(typeof movieId === 'string' ? parseInt(movieId) : movieId),
-    isDisliked: (movieId: number | string) => state.dislikes.has(typeof movieId === 'string' ? parseInt(movieId) : movieId),
-    isLoading: (movieId: number | string) => state.loading.has(typeof movieId === 'string' ? parseInt(movieId) : movieId),
+    // State checkers
+    isInWatchlist: (movieId: number) => state.watchlist.has(movieId),
+    isLiked: (movieId: number) => state.likes.has(movieId),
+    isDisliked: (movieId: number) => state.dislikes.has(movieId),
+    isLoading: (movieId: number) => state.loading.has(movieId),
 
     // Actions
     addToWatchlist,
