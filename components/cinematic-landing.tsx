@@ -683,7 +683,7 @@ export default function CinematicLanding() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.5 }}
-                className="relative h-[70vh] overflow-hidden border-b border-gray-800"
+                className="relative h-[75vh] sm:h-[80vh] lg:h-[85vh] overflow-hidden border-b border-gray-800"
               >
                 <div
                   className="absolute inset-0 bg-cover bg-center transform scale-105 transition-transform duration-700"
@@ -724,17 +724,17 @@ export default function CinematicLanding() {
                 </Button>
 
                 <div className="relative z-10 max-w-7xl mx-auto px-4 h-full flex items-center">
-                  <div className="mx-12 md:mx-16 w-full">
+                  <div className="mx-8 md:mx-12 w-full">
                     <div className="grid lg:grid-cols-2 gap-6 lg:gap-8 items-center">
                       {/* Content Section */}
                       <motion.div
-                        className="order-2 lg:order-1 space-y-4 sm:space-y-5 lg:space-y-7"
+                        className="order-2 lg:order-1 space-y-4 sm:space-y-5 lg:space-y-6"
                         initial={{ opacity: 0, x: -50 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.8, delay: 0.2 }}
                       >
                         <div className="space-y-2">
-                          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-black leading-tight tracking-tight">
+                          <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-black leading-tight tracking-tight line-clamp-2 lg:line-clamp-3">
                             <span className="bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent drop-shadow-2xl">
                               {featuredMovie.title}
                             </span>
